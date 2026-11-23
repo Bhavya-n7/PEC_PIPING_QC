@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy to config.local.json (git-ignored) and fill in. Used by the release build to write office-defaults.json and by scripts\\leak-scan.ps1.",
+  "shared_root": "\\\\<server>\\<share>\\PIPEING_QC",
+  "update_source": "",
+  "leak_patterns": ["<server name or IP>", "<domain>", "<windows user ids>"]
+}

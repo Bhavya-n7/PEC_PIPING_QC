@@ -1,0 +1,27 @@
+# client / confidential material: never commit drawings, models, snapshots, reports
+*.nwd
+*.nwf
+*.nwc
+*.pdf
+*.rvm
+samples/
+reports/
+data/
+# private site configuration (share paths, servers): see config.example.json
+config.local.json
+office-defaults.json
+# earlier exploratory work, kept locally only
+prototype/
+.venv/
+__pycache__/
+*.pyc
+*.spec
+.pytest_cache/
+# build output
+bin/
+obj/
+dist/
+build/
+*.user
+.vs/
+TestResults/
