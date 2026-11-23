@@ -16,10 +16,14 @@ $patterns = @(
   '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.(com|org|net|in|co)\b',     # e-mail addresses
   '(?i)(client_secret|api[_-]?key|password|token)\s*[:=]\s*["''][^"'']{6,}'   # secrets
 )
+# Documented fake values: version numbers that look like IPs, generic placeholders, and the fake data the privacy-filter tests feed on purpose.
+# Only these exact literals are exempt; real server names and users come from config.local.json and are always caught.
+$benign = '<(Assembly|File)Version>|\\\\server\\share|\\\\<server>|\\\\fileserver\\|C:\\Users\\x\\|10\.20\.30\.40|leak-scan:ignore'
 $cfg = Join-Path $root 'config.local.json'
+$realOnly = '(?!)'   # never matches until config.local.json adds patterns
 if (Test-Path $cfg) {
   $extra = (Get-Content $cfg -Raw | ConvertFrom-Json).leak_patterns
-  if ($extra) { $patterns += $extra }
+  if ($extra) { $patterns += $extra; $realOnly = ($extra -join '|') }   # a line that has a real private value is never exempt
 }
 
 # files that are in git or staged (deleted ones skipped); binary files skipped
@@ -31,7 +35,10 @@ foreach ($f in $files) {
   if ($f -match '\.(png|ico|zip|exe|dll|pdf|nwd|jpg|xlsx|docx)$') { continue }
   foreach ($p in $patterns) {
     $m = Select-String -Path $f -Pattern $p -ErrorAction SilentlyContinue
-    foreach ($x in $m) { $hits++; Write-Host ("{0}:{1}: {2}" -f $f, $x.LineNumber, $x.Line.Trim()) -ForegroundColor Red }
+    foreach ($x in $m) {
+      if ($x.Line -match $benign -and $x.Line -notmatch $realOnly) { continue }
+      $hits++; Write-Host ("{0}:{1}: {2}" -f $f, $x.LineNumber, $x.Line.Trim()) -ForegroundColor Red
+    }
   }
 }
 if ($hits) { Write-Host "`n$hits possible leak(s). Fix or move them to config.local.json before pushing." -ForegroundColor Red; exit 1 }

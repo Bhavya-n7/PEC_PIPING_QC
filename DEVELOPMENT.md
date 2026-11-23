@@ -105,15 +105,17 @@ Rules: seed missing files only, never overwrite shared files (people edit them);
 - [x] Pushed to the remote
 - Exit: plan reviewed by the owner
 
-### Phase 1: Foundation (solution, Core, MCP skeleton, tests)
-- [ ] .NET 10 SDK available (per user, no admin)
-- [ ] `PEC_Qc.slnx`, `Directory.Build.props` (version 0.1.0), `Pec.Qc.Core`, `Pec.Qc.Mcp`, `Pec.Qc.Tests`
-- [ ] Core: the shared stack copied from the reference and renamed: Claude CLI + prompt builder + chat history/attachments, ApprovalGate, SafeWrite, Settings, UserIdentity, SharedHub, ActivityLog/AuditLog, LessonStore, KnowledgeStore, ManualIndex/Bm25/TrainingPack, KitSync, CustomTools, Updates, Office kit (Excel/Word/PDF), path diagnostics. Everything Smart 3D-specific removed
-- [ ] MCP server: environment/status, guidance, knowledge/training, learn, activity report, custom tools, kit, office files, troubleshoot, file read (allow-listed)
-- [ ] Shared-folder probe tolerant of shares that allow create but not delete (found on the real share)
-- [ ] Tests green (copied and adapted: approvals, activity, shared hub, kit, updates, training pack, chat history, attachments, office kit)
-- [ ] MCP server run over stdio and registered with Claude Code (smoke test)
-- Exit: `dotnet build` 0 errors, `dotnet test` green, `qc_status` answers through Claude Code
+### Phase 1: Foundation (solution, Core, MCP skeleton, tests) - DONE
+- [x] .NET 10 SDK available (per user, no admin; installed with the official install script into the user profile, user PATH updated)
+- [x] `PEC_Qc.slnx`, `Directory.Build.props` (version 0.1.0), `Pec.Qc.Core`, `Pec.Qc.Mcp`, `Pec.Qc.Tests`
+- [x] Core: the shared stack copied from the reference and renamed: Claude CLI + prompt builder + chat history/attachments, ApprovalGate, SafeWrite, Settings, UserIdentity, SharedHub, ActivityLog/AuditLog, LessonStore, KnowledgeStore, ManualIndex/Bm25/TrainingPack, KitSync, CustomTools, Updates, Office kit (Excel/Word/PDF + text reader), path diagnostics, Navisworks finder. Everything Smart 3D-specific left out (bridge, conversion, SQL, sites, model, APS, docs index)
+- [x] QC replacements written: `ProjectCard` + `ProjectStore` (shared `projects\` cards, active project per user; replaces the Smart 3D site profile), QC system prompt, quick tasks for the three QC types, QC settings folders (`projects`, `models`, `reports`, `users`)
+- [x] MCP server `pec-qc`, 34 tools: `qc_status`, `who_am_i`, `activity_report`, `guidance`, `recall`/`remember`/`forget`/`list_knowledge`, `learn_record`/`learn_search`/`learn_pull`, `read_training`/`training_overview`/`convert_training`, `custom_tools`/`run_custom_tool`/`create_custom_tool`/`save_skill`, `kit_*` (5), `excel_*` (4), `word_*` (2), `pdf_*` (4), `file_read`
+- [x] Shared-folder probe tolerant of shares that allow create/overwrite/append but **not delete** (measured on the real share): one fixed probe file, project-card delete never throws
+- [x] Tests green: 118 (approvals, activity, shared hub, kit, updates, training pack, chat history, attachments, office kit, plus new tests for project cards/store, settings folders, folder defaults, share without delete)
+- [x] MCP server run over stdio by an MCP client (34 tools listed, status/identity/lessons/Excel round trip) **and** by a fresh Claude Code session calling `qc_status`
+- Not in this phase (moved): the Smart 3D-specific `error_explain` and the C# tool store (Phase 9), `graphify` (dropped), installer tests and the in-app guide / WPF thread-guard tests (added with the projects they guard: Phase 3 and 4)
+- Exit met: `dotnet build` 0 errors, `dotnet test` 118 passed, `qc_status` answers through Claude Code
 
 ### Phase 2: Shared office folder, identity and central users
 - [ ] QC folder layout created on the real share (README, `hub.json`, all folders) by `SharedHub.Ensure`
