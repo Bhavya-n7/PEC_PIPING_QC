@@ -5,30 +5,22 @@ description: How to check a redrawn P&ID (PDF) against the client's original P&I
 
 # P&ID check (redrawn against the original)
 
-Plan with `qc_checklist` (type pid): 7 items. Findings and the report: `qc-findings-and-reports`. The original comes from the project inputs (`pid` folder); the redrawn one is the file the user names.
+Checklist: `qc_checklist` (type pid), 7 items. Findings and the report: `qc-findings-and-reports`. The original is in the project inputs (`pid` folder); the redrawn drawing is the file the user names.
 
-## Know what tools you have
-Check your tool list. If a P&ID comparison tool exists, use it and then verify a few of its findings yourself. If not, you work from the **text of both PDFs** (`pdf_read`). Text cannot show symbols or how lines are routed: say so, and mark graphic content **INFO "not verified"**. If a PDF has no text layer (a scan), the check cannot be done on text: say so for that sheet.
+## The tool compares the text, you report it
+1. **`pid_compare`** with the redrawn PDF. It finds the original in the project's pid inputs by file name (or you pass `original`; if several could match it says so, ask the user). It compares sheet by sheet: line numbers, tags (equipment, instruments, valves), short labels and notes, text read horizontally and rotated.
+2. **Answer**: the verdict, every FAIL (missing or changed: both texts, the sheet and zone on the original, look-alike characters named), then the REVIEWs, then `notVerified`. `apply=true` saves the Excel and Markdown report after the user approves; offer it.
+3. To look closer or to answer a question about one drawing: **`pid_read`** (items with their zone A1..H6; `full` adds notes and labels).
 
-## Steps
-1. **Find the original**: `inputs_list` / `inputs_search` kind pid for the sheet number or drawing number. Confirm it is the same sheet and revision as the redrawn one; if the revisions differ, say it first.
-2. **Read both** with `pdf_read` (same sheet). Write down, for each, the set of:
-   - line numbers (size, fluid, area, class, sequence), with their notes (insulation, tracing, slope)
-   - equipment tags and names (and ratings or sizes printed beside them)
-   - instrument tags (function letters and loop number)
-   - valve tags and types, and special items
-   - notes, hold items, legends, revision block, title block
-3. **Compare the sets**, both ways:
-   - on the original but **missing** on the redrawn one
-   - on the redrawn one but **not** on the original (extra)
-   - on both but **different** (a character in a tag, a size, a class, a note's wording)
-4. **Tag hygiene**: look for look-alike characters (0/O, 1/I/l, 5/S, 8/B), dropped suffixes (V-101A vs V-101), swapped digits. Report the exact characters on each side.
-5. **Counts**: the number of lines, equipment, instruments, valves per sheet on each side. A different count with no listed difference means you missed one: look again.
-6. **Client rules** (`client_requirements`, `requirements_check` for the tag and line number formats).
-7. **Report** with `qc_report_write` (type pid). One finding per difference, each with both values; the source value is the original, with its sheet.
+## Read the result honestly
+- **FAIL** = on the original but missing on the redrawn drawing, or different (a character, a digit, a note's wording), or a count that is lower. **REVIEW** = only on the redrawn drawing, an item in a different place (a redraw can shift things: look), or a sheet with no text. A sheet with no text is not compared: say so.
+- **The graphics are never compared**: symbols, how lines are routed and connected, flow arrows, line types, valve types. `notVerified` says so every time: tell the user a person must check these on the drawing. A clean text comparison is not a clean drawing.
+- Off-page connectors and continuations are text and are compared as text; whether they point to the right sheet and line is yours to check by reading both.
+- A note that is on the redrawn drawing with different line breaks is INFO ("read it on the drawing"), not a failure.
+- The tool is tuned on synthetic drawings only. If a result looks wrong (a tag read as a label, a line number split), check the drawing with `pid_read` and say what you saw: do not report a tool artefact as a drafting error.
+- Client rules (`client_requirements`, `requirements_check` for tag and line number formats): quote their source.
 
-## What usually matters
-- **Missing** items are the serious ones: a missing line, valve or instrument is a FAIL ("on the original, not on the redrawn one").
-- Drawing text split across lines (a long note, a tag over two lines) may read in a different order: compare the content, not the order, and quote both.
-- Sheet continuation (off-page connectors) must point to the same sheet and line on both sides.
-- You compare the redrawn drawing with the original; you do not judge the design.
+## Counts and sanity
+The number of lines, tags and notes on each side is in the OK / FAIL findings. A different count with no listed difference means the reader missed something: look at both with `pid_read`.
+
+You compare the redrawn drawing with the original; you do not judge the design.

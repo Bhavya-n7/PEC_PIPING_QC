@@ -184,11 +184,13 @@ Rules: seed missing files only, never overwrite shared files (people edit them);
 - **Not built (moved on):** structured PMS class sheets (rating / material / schedule against the BOM): needs a real client PMS sample, its layout is not guessed. P&ID from / to end points and vendor face-to-face: reported as not verified
 - Exit: on the real project the corrupted drawings are found and the genuine one is clean; the measured agreement with the QC team's hand check still needs a real batch from the team
 
-### Phase 7: P&ID QC (redrawn vs original)
-- [ ] P&ID reader: line numbers, equipment tags, instrument tags, notes, valves with positions
-- [ ] Drawing-to-drawing compare: missing, extra, changed (text and tag), moved beyond tolerance; sheet and zone reference
-- [ ] Tools: `pid_read`, `pid_compare`, report
-- Exit: measured against hand QC on real redrawn P&IDs
+### Phase 7: P&ID QC (redrawn vs original) - DONE on synthetic drawings only (no real P&ID was available)
+- [x] **P&ID reader** (`PidReader`): the text layer into line numbers, tags (equipment, instruments, valves; an instrument bubble with the letters over the number is joined: PT / 1001 = PT-1001), short labels and notes, each with its zone (A1..H6) on a page normalised to the A3 frame. Reads horizontal AND rotated text (line numbers run along pipes). The same extraction runs on both drawings, so what is compared is consistent; everything that is text lands in one of the four kinds
+- [x] **Compare** (`PidComparer`): sheet count; every line number, tag, label and note of the original must be on the redrawn drawing. FAIL: missing, changed (one changed item, not a missing plus an extra: both texts, look-alike characters such as 0/O named, works even when the changed text no longer looks like a tag), a lower count, a note reworded or incomplete (the missing words named). REVIEW: only on the redrawn drawing, moved beyond the tolerance (default 30 pt of A3, so a different page size does not matter), a sheet with no text. INFO: a note with different line breaks; **the graphics (symbols, routing, flow, line types) are always listed as not verified**
+- [x] Tools `pid_read`, `pid_compare` (finds the original in the project's pid inputs by file name, or `original`; report saved with approval, type pid); skill `qc-pid` rewritten around them
+- Verified: 15 new tests (reading incl. rotated text and bubbles, an identical copy is clean, each kind of copying error, a different page size, tolerance, unreadable sheet, every FAIL has both texts and the source); **mutation check** (missing-item FAIL downgraded: 3 tests fail); both tools driven over MCP stdio on synthetic drawings (original auto-found, a retyped 0/O tag and a forgotten valve both found, report saved)
+- **Not verified:** any real redrawn P&ID and its original. The extraction is tuned on drawings I generated, not on a CAD-exported P&ID: real ones may split tags or line numbers differently, hold text as graphics, or number tags in patterns the reader does not expect. Hand-QC agreement (the exit measure) is not measured. Symbols and routing are never compared; a P&ID drawn as vector outlines or scanned is not readable
+- Exit: pending a real redrawn / original pair from the QC team to measure against their hand check
 
 ### Phase 8: GA drawing QC
 - [ ] GA reader: equipment tags, dimensions, elevations, coordinates, north arrow, notes
