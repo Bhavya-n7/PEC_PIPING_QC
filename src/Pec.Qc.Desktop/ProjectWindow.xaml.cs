@@ -56,7 +56,7 @@ public partial class ProjectWindow : Window
         var inputs = InputsBox.Text.Trim();
         if (inputs.Length == 0 && _defaultInputs(name) is { } def)
         {
-            try { Directory.CreateDirectory(def); inputs = def; }
+            try { Directory.CreateDirectory(def); Pec.Qc.Core.Inputs.InputsLibrary.EnsureLayout(def); inputs = def; }       // the folder is ours: lay out pms, line-list, pid, vendor, other
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             { MessageBox.Show(this, "The shared inputs folder could not be created: " + ex.Message + "\n\nThe project is saved without an inputs folder; set one later.", "QC project"); }
         }

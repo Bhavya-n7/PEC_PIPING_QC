@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.1.0 - first release candidate (Phases 0-4)
+- Phase 5: project inputs (inventory, coverage per QC type, searchable index with file and page / sheet and rows, line list read as data), client requirement packs where every rule has a source, the findings model and report (Excel + Markdown), QC checklists, six QC skills, 12 new tools (inputs_*, line_list_*, client_requirements, save_requirements, requirements_check, qc_checklist, qc_report_write); tags such as 2"-CD-60A07900-B400A-N-HS-017 are searchable by their parts.
 - Phase 4: Setup (PecQcSetup.exe + payload.zip): readiness checks, per-user install without administrator rights, registration with Claude Code and Claude Desktop (config backed up first), skills copied without replacing a skill of the same name, Start-menu shortcut, uninstall that leaves nothing behind; update check from the shared updates folder with an Update now bar and a silent automatic update that keeps the choices of the first install; build-installer.ps1 and publish-release.ps1 (older version never replaces a newer one, latest.json written last).
 - Phase 3: desktop app `PecQcAssistant.exe` (WPF): chat, first-run identity, QC project cards, Navisworks and project-inputs status lights, approval window, Knowledge and Guide pages, QC quick tasks with hints, settings with role.
 - Phase 2 (real share): QC layout created on the company share (`Pec.Qc.Mcp.exe init-shared`), seed prompts and skills published, registry/lessons/activity/audit verified there with a gated integration test (`PEC_QC_SHARE_TEST`).

@@ -42,6 +42,20 @@
     "Hint": "PMS, line list, P&IDs and vendor data: what is there and what is missing."
   },
   {
+    "Id": "line",
+    "Category": "Project inputs",
+    "Title": "Look up a line in the line list",
+    "Prompt": "Look up the line {{?Line number}} in the line list of {{project}} and show every value with its unit and where it is (file, sheet, row). Say which values are blank.",
+    "Hint": "Every value of the line with its unit, and the file, sheet and row it comes from."
+  },
+  {
+    "Id": "checklist",
+    "Category": "Project inputs",
+    "Title": "What does a check cover?",
+    "Prompt": "Show the checklist for the {{?QC type: iso, pid or ga}} check and say which project inputs each item needs and which of them {{project}} has.",
+    "Hint": "The items of the check, the inputs each needs, and what this project is missing."
+  },
+  {
     "Id": "rule",
     "Category": "Knowledge",
     "Title": "What does the PMS / client rule say?",

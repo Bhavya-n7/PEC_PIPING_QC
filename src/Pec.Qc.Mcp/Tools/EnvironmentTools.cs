@@ -10,6 +10,21 @@ namespace Pec.Qc.Mcp.Tools;
 [McpServerToolType]
 public static class EnvironmentTools
 {
+    /// <summary>What the active project's inputs folder holds and what each QC type is still missing; a problem line when there is nothing to check against.</summary>
+    private static object? InputsSummary(Pec.Qc.Core.Claude.ProjectCard? project, List<string> problems)
+    {
+        if (project is null) return null;
+        try
+        {
+            var (lib, _) = Resolve.Inputs();
+            var inv = lib.Inventory();
+            var missing = Enum.GetValues<Pec.Qc.Core.Findings.QcType>().ToDictionary(t => Pec.Qc.Core.Findings.QcTypes.Code(t), t => lib.Coverage(t, inv).Where(c => !c.Present).Select(c => Pec.Qc.Core.Inputs.InputKinds.Label(c.Kind)).ToList());
+            if (inv.Count == 0) problems.Add("The project inputs folder is empty: add the PMS, line list, P&IDs and vendor data (inputs_list says where).");
+            return new { folder = lib.Folder, files = inv.Count, byKind = inv.GroupBy(d => d.Kind).ToDictionary(g => g.Key.ToString(), g => g.Count()), missingFor = missing };
+        }
+        catch (ModelContextProtocol.McpException e) { problems.Add(e.Message); return new { problem = e.Message }; }
+    }
+
     [McpServerTool(Name = "qc_status", ReadOnly = true)]
     [Description("The state of the QC assistant on this PC: who is using it, the shared office folder (reachable, writable, what it holds), the active QC project, Navisworks Manage, and whether a newer version is waiting. Call it first; it lists what is ready and what blocks work.")]
     public static async Task<object> Status()
@@ -41,6 +56,7 @@ public static class EnvironmentTools
             user = new { who.Name, who.EmployeeCode, who.Company, role = me.Role, complete = who.IsComplete },
             sharedFolder = shared,
             activeProject = project is null ? null : new { project.Name, project.Client, project.ProjectNo, project.ModelFile, project.InputsFolder, project.RulePacks },
+            inputs = InputsSummary(project, problems),
             navisworks = nav is null ? null : new { nav.Name, nav.Root },
             update = new { available = update.Available, latest = update.Latest?.Version, error = update.Error },
             ready = problems.Count == 0,

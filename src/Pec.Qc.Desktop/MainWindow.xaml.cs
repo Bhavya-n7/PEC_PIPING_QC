@@ -526,6 +526,30 @@ public partial class MainWindow : Window
                 ("Set the shared folder", () => Settings_Click(this, new RoutedEventArgs()))));
 
         // skills
+        // the active project's inputs: what is there and what each QC type is still missing
+        {
+            var proj = _profiles.Active;
+            var folder = proj is null ? null : string.IsNullOrWhiteSpace(proj.InputsFolder) ? _profiles.DefaultInputsFolder(proj.Name) : proj.InputsFolder;
+            if (proj is null || string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+                KnowledgePanel.Children.Add(InfoCard("", "WarnSoft", "Warn", "Project inputs", proj is null ? "No active project" : "No inputs folder yet",
+                    Lines([], "The PMS, line list, P&IDs and vendor data of a project live in its inputs folder. Add or edit the project to set one."),
+                    ("Projects", () => NavProjects.IsChecked = true)));
+            else
+            {
+                var lib = new Pec.Qc.Core.Inputs.InputsLibrary(folder);
+                var inv = lib.Inventory();
+                var byKind = Enum.GetValues<Pec.Qc.Core.Inputs.InputKind>().Select(k => (k, n: inv.Count(d => d.Kind == k))).Where(x => x.n > 0)
+                    .Select(x => $"{Pec.Qc.Core.Inputs.InputKinds.Label(x.k)}: {x.n}");
+                var missing = Enum.GetValues<Pec.Qc.Core.Findings.QcType>().Select(t => (t, miss: lib.Coverage(t, inv).Where(c => !c.Present).Select(c => Pec.Qc.Core.Inputs.InputKinds.Label(c.Kind)).ToList()))
+                    .Where(x => x.miss.Count > 0).Select(x => $"{Pec.Qc.Core.Findings.QcTypes.Label(x.t)} lacks: {string.Join(", ", x.miss)}");
+                var body = new StackPanel();
+                body.Children.Add(Lines(byKind, "The folder is empty."));
+                if (missing.Any()) { var m = Lines(missing, ""); m.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 8, 0, 0)); body.Children.Add(m); }
+                KnowledgePanel.Children.Add(InfoCard("", missing.Any() ? "WarnSoft" : "GoodSoft", missing.Any() ? "Warn" : "Good", "Project inputs", $"{proj.Name}: {inv.Count} files", body,
+                    ("Open folder", () => OpenFolder(folder)), ("What can be checked?", () => AskAssistant("List the project inputs for the active project and say which QC checks each one supports and what is missing."))));
+            }
+        }
+
         var skills = PromptBuilder.SkillList(_settings.EffectiveSkillsDirectory);
         KnowledgePanel.Children.Add(InfoCard("", "AccentSoft", "Accent", "Skills", $"{skills.Count} how-to guides", Lines(skills.Select(s => s.Name), "No skills yet."),
             ("Open folder", () => OpenFolder(_settings.EffectiveSkillsDirectory)), ("Ask for a new skill", () => AskAssistant("Create a new shared skill from what we have just done. Show me the guide first."))));
