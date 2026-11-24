@@ -3,6 +3,17 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
 
+// "Pec.Qc.Mcp.exe init-shared [folder]" creates the shared office folder layout (sub-folders, README, hub.json) and prints what is there.
+// For IT and the release manager; the desktop app and Setup do the same at first run. Never overwrites, never deletes.
+if (args.Length > 0 && args[0] == "init-shared")
+{
+    var root = args.Length > 1 ? args[1] : Pec.Qc.Core.Settings.Load().SharedRoot;
+    if (string.IsNullOrWhiteSpace(root)) { Console.Error.WriteLine("No folder: pass it as the second argument, or set the shared folder in the settings / office-defaults.json."); return 2; }
+    var st = Pec.Qc.Core.Knowledge.SharedHub.Ensure(root);
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new { st.Reachable, st.Writable, st.Counts }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+    return st.Reachable && st.Writable ? 0 : 1;
+}
+
 var builder = Host.CreateApplicationBuilder(args);
 
 // stdout carries the MCP protocol: every log goes to stderr.

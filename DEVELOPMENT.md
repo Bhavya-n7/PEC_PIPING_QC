@@ -117,17 +117,19 @@ Rules: seed missing files only, never overwrite shared files (people edit them);
 - Not in this phase (moved): the Smart 3D-specific `error_explain` and the C# tool store (Phase 9), `graphify` (dropped), installer tests and the in-app guide / WPF thread-guard tests (added with the projects they guard: Phase 3 and 4)
 - Exit met: `dotnet build` 0 errors, `dotnet test` 118 passed, `qc_status` answers through Claude Code
 
-### Phase 2: Shared office folder, identity and central users - code done, real-share checks open
-- [ ] QC folder layout created on the real share (README, `hub.json`, all folders) by `SharedHub.Ensure` (code and test done on a temp folder; **not yet run on the company share**: it writes there, waiting for the owner's go-ahead)
-- [x] `office-defaults.json` written from the private `config.local.json` by `scripts\make-office-defaults.ps1` (git-ignored output); `Settings.Load` applies it to empty settings only (code from Phase 1)
+### Phase 2: Shared office folder, identity and central users - DONE
+- [x] QC folder layout created on the **real share** (README, `hub.json`, 17 folders) with `Pec.Qc.Mcp.exe init-shared [folder]` (new command for IT and the release manager; creates, never overwrites, never deletes). Layout checked by listing the share
+- [x] `office-defaults.json` written from the private `config.local.json` by `scripts\make-office-defaults.ps1` (git-ignored output); `Settings.Load` applies it to empty settings only
 - [x] `UserIdentity` + **central registry** `users\<code>.json` (`Pec.Qc.Core.Users`): role, first/last seen, version, machine, sessions; refreshed by `qc_status` and `who_am_i`; falls back to a local record when the share is away
-- [x] Roles `qc-engineer` < `qc-lead` < `admin` **enforced by the tools** (`Resolve.Require`): `save_skill` needs lead; `kit_pending`, `kit_approve`, `set_user_role` need admin; `users_list` needs lead. New tools: `users_list`, `set_user_role` (36 tools in all). An admin cannot demote themselves
-- [ ] Activity and audit logs verified on the real share (several users, offline fallback and later sync): code exists from Phase 1, the real-share run is open
-- [x] Seed content: `prompts\master-prompt.md`, `prompts\quick-tasks.json` (kept equal to the built-in defaults by a test), platform skills `qc-platform` and `qc-learning`; seeding never overwrites
-- [x] `scripts\publish-to-shared.ps1` (report first, `-Apply` copies, backs up changed files as `.bak_<date-time>`, never deletes; folder from `config.local.json`)
-- Assumptions to confirm (D3/D4): the first person to register when the registry has no admin becomes admin; roles live in a plain file, so the tools enforce them but the **share's folder permissions** are the real protection (give `users\` modify rights to admins only)
-- Verified: `dotnet build` 0 errors, `dotnet test` 130 passed, MCP server run over stdio with two identities (first user admin, engineer refused `users_list`/`kit_pending`/`set_user_role`, lead allowed `users_list` but not `kit_pending`, admin promoted a user, self-demotion refused)
-- Exit (open): two PCs/identities see each other's lessons and appear in the user registry **on the real share**
+- [x] Roles `qc-engineer` < `qc-lead` < `admin` **enforced by the tools** (`Resolve.Require`): `save_skill` needs lead; `kit_pending`, `kit_approve`, `set_user_role` need admin; `users_list` needs lead. Tools `users_list`, `set_user_role` (36 tools in all). An admin cannot demote themselves
+- [x] Activity, audit, lessons and the user registry **verified on the real share** by an integration test (`RealShareTests`, runs only when `PEC_QC_SHARE_TEST` names a folder): two identities see each other's registry entries and lessons, both write activity to the shared log and read each other's lines, an audit line lands in `audit\`, a role change survives the person's next start, and an unreachable share falls back to this PC without an error. Run inside `<share>\_selftest` so the real registry and logs stay empty (files cannot be deleted there)
+- [x] Seed content published to the real share with `scripts\publish-to-shared.ps1 -Apply` (report first; re-run is idempotent, 0 changes): `prompts\master-prompt.md`, `prompts\quick-tasks.json`, skills `qc-platform` and `qc-learning`. Seeding never overwrites; changed files are backed up as `.bak_<date-time>`
+- [x] `scripts\publish-to-shared.ps1` (report first, `-Apply` copies, never deletes; folder from `config.local.json`)
+- Verified: `dotnet build` 0 errors, `dotnet test` 130 passed + 2 real-share tests passed on the company share
+- Left on the share by development (cannot be deleted by users, an admin should remove them): `.probe-6ab40e`, `.write-test` at the root, and the whole `_selftest\` folder
+- **Decision needed (D4):** the first person to register when the registry has no admin becomes admin. On the real share nobody has registered yet, so **whoever starts the app first becomes the administrator**. The owner should be that person, or name the admins up front. Roles live in a plain file: give `users\` modify rights to administrators only on the share
+- Moved to Phase 9: a later **sync** of activity and lessons written while offline (today they stay on that PC); the fallback itself is verified
+- Exit met: two identities see each other's lessons and appear in the user registry on the real share
 
 ### Phase 3: Desktop app (WPF)
 - [ ] Shell copied from the reference and adapted: theme, chat with markdown, tool steps, attachments, chat history, token display
@@ -171,6 +173,7 @@ Rules: seed missing files only, never overwrite shared files (people edit them);
 - Exit: measured against hand QC on real GA drawings
 
 ### Phase 9: Self-learning and the shared kit
+- [ ] Offline queue: activity and lessons written while the share is away are synced back later
 - [ ] `learn_record` / `learn_search` / `learn_pull` in the app; curator screen (approve/reject, strong-correction flag) -> `LEARNED.md`
 - [ ] Automatic reflection turn after errors or corrections; saved C# tools synced across PCs
 - [ ] Shared kit (skills, commands, agents) publish/approve/pull with privacy scan

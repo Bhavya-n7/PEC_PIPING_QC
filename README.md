@@ -13,7 +13,7 @@ inputs and write reports; people decide.
 Built like the other PEC assistants: WPF app + C# MCP server + Setup with auto-update + one shared office folder (skills, learning, requirements,
 projects, models, reports, users, activity, updates).
 
-**Status:** in development, one phase at a time (Phases 0 and 1 done: plan and foundation; Phase 2 code done: user registry and roles, real-share checks open). Plan, decisions and checkboxes: [`DEVELOPMENT.md`](DEVELOPMENT.md). Release notes: [`CHANGELOG.md`](CHANGELOG.md).
+**Status:** in development, one phase at a time (Phases 0-2 done: plan, foundation, shared folder with identity, user registry and roles; next: the desktop app). Plan, decisions and checkboxes: [`DEVELOPMENT.md`](DEVELOPMENT.md). Release notes: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Working on it
 - Needs the .NET 10 SDK (per-user install: `dotnet-install.ps1 -Channel 10.0`). `dotnet build PEC_Qc.slnx`, `dotnet test`.
