@@ -63,6 +63,7 @@ public class UpdatesTests
     [Theory]
     [InlineData("src/Pec.Qc.Desktop/MainWindow.xaml.cs")]
     [InlineData("src/Pec.Qc.Desktop/MainWindow.Chats.cs")]
+    [InlineData("src/Pec.Qc.Setup/SetupWindow.xaml.cs")]
     public void Background_work_never_reads_or_writes_a_wpf_control(string file)
     {
         // WPF controls belong to the UI thread: inside Task.Run(...) only plain values captured beforehand may be used
@@ -83,17 +84,45 @@ public class UpdatesTests
     }
 
     [Fact]
-    public void The_desktop_project_takes_its_version_from_the_one_place()
+    public void The_desktop_and_setup_projects_take_their_version_from_the_one_place()
     {
-        Assert.DoesNotContain("<Version>", File.ReadAllText(TestPaths.FindUp("src/Pec.Qc.Desktop/Pec.Qc.Desktop.csproj")));
+        foreach (var proj in new[] { "Desktop", "Setup" })
+            Assert.DoesNotContain("<Version>", File.ReadAllText(TestPaths.FindUp($"src/Pec.Qc.{proj}/Pec.Qc.{proj}.csproj")));
+    }
+
+    [Fact]
+    public void The_release_notes_for_the_current_version_exist_in_the_changelog()
+    {
+        var v = Regex.Match(File.ReadAllText(TestPaths.FindUp("Directory.Build.props")), @"<Version>([^<]+)</Version>").Groups[1].Value;
+        var log = File.ReadAllText(TestPaths.FindUp("CHANGELOG.md"));
+        // the same pattern build-installer.ps1 uses to cut the notes for latest.json
+        var m = Regex.Match(log, @"(?s)## " + Regex.Escape(v) + @"[^\r\n]*\r?\n(.*?)(\r?\n## |\z)");
+        Assert.True(m.Success, $"CHANGELOG.md has no '## {v}' section: the update notes would be empty");
+        Assert.True(m.Groups[1].Value.Trim().Length > 20);
+    }
+
+    [Fact]
+    public void The_release_json_is_what_the_update_check_reads()
+    {
+        var json = Updates.ReleaseJson("1.2.3", "notes");
+        using var t = new TempDir();
+        t.File("latest.json", json);
+        var check = Updates.CheckAsync(t.Path, "1.2.2").GetAwaiter().GetResult();
+        Assert.True(check.Available);
+        Assert.Equal("1.2.3", check.Latest!.Version);
+        Assert.EndsWith("PecQcSetup.exe", check.SetupLocation);
+        Assert.False(Updates.CheckAsync(t.Path, "1.2.3").GetAwaiter().GetResult().Available);
     }
 
     [Fact]
     public void No_text_in_the_desktop_app_still_talks_about_the_product_it_was_built_from()
     {
-        var dir = Path.GetDirectoryName(TestPaths.FindUp("src/Pec.Qc.Desktop/Pec.Qc.Desktop.csproj"))!;
-        foreach (var f in Directory.GetFiles(dir, "*.*").Where(f => f.EndsWith(".cs") || f.EndsWith(".xaml")))
-            Assert.DoesNotContain("Smart 3D", File.ReadAllText(f));
+        foreach (var proj in new[] { "Desktop", "Setup" })
+        {
+            var dir = Path.GetDirectoryName(TestPaths.FindUp($"src/Pec.Qc.{proj}/Pec.Qc.{proj}.csproj"))!;
+            foreach (var f in Directory.GetFiles(dir, "*.*").Where(f => f.EndsWith(".cs") || f.EndsWith(".xaml")))
+                Assert.DoesNotContain("Smart 3D", File.ReadAllText(f));
+        }
     }
     // Phase 4 adds the same thread guard for SetupWindow. They are added with the projects they guard, not skipped silently here.
 

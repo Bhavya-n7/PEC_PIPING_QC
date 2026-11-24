@@ -3,6 +3,7 @@ using Pec.Qc.Core.Setup;
 
 namespace Pec.Qc.Tests;
 
+[Collection("EnvVar")]
 public class FolderDefaultsTests
 {
     [Fact]
@@ -31,6 +32,7 @@ public class FolderDefaultsTests
     }
 }
 
+[Collection("EnvVar")]
 public class SettingsFolderTests
 {
     [Fact]
