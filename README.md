@@ -13,7 +13,7 @@ inputs and write reports; people decide.
 Built like the other PEC assistants: WPF app + C# MCP server + Setup with auto-update + one shared office folder (skills, learning, requirements,
 projects, models, reports, users, activity, updates).
 
-**Status:** in development, one phase at a time (Phases 0-9 done: plan, foundation, shared folder with identity and roles, desktop app, Setup with auto-update, project inputs / requirements / findings / skills, isometric check against the Navisworks model, P&ID check, GA drawing check, self-learning with curation; next: hardening and release). Plan, decisions and checkboxes: [`DEVELOPMENT.md`](DEVELOPMENT.md). Release notes: [`CHANGELOG.md`](CHANGELOG.md).
+**Status:** in development, one phase at a time (Phases 0-10 (hardening: partly) done: plan, foundation, shared folder with identity and roles, desktop app, Setup with auto-update, project inputs / requirements / findings / skills, isometric check against the Navisworks model, P&ID check, GA drawing check, self-learning with curation, signed updates and a security review; next: pilot). Plan, decisions and checkboxes: [`DEVELOPMENT.md`](DEVELOPMENT.md). Release notes: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Working on it
 - Needs the .NET 10 SDK (per-user install: `dotnet-install.ps1 -Channel 10.0`). `dotnet build PEC_Qc.slnx`, `dotnet test`.

@@ -633,7 +633,7 @@ public partial class MainWindow : Window
 
     private async Task CheckUpdateAsync()
     {
-        _update = await Updates.CheckAsync(_settings.EffectiveUpdateSource);
+        _update = await Updates.CheckAsync(_settings.EffectiveUpdateSource, null, default, _settings.UpdatePublicKey);
         if (_update is not { Available: true, Latest: { } l }) return;
         UpdateText.Text = $"Version {l.Version} is available (you have {_update.Current}).";
         UpdateBar.Visibility = Visibility.Visible;
@@ -676,6 +676,9 @@ public partial class MainWindow : Window
                 }
                 else File.Copy(baseLoc + name, Path.Combine(tmp, name), true);
             }
+            // the files were copied from a share many people can write to: check them against the signed release file before anything is run
+            var refused = Pec.Qc.Core.Setup.UpdateTrust.CheckFiles(_update!.Latest!, Path.Combine(tmp, "PecQcSetup.exe"), Path.Combine(tmp, "payload.zip"), _update.KeyConfigured);
+            if (refused is not null) throw new InvalidOperationException(refused);
             Process.Start(new ProcessStartInfo(Path.Combine(tmp, "PecQcSetup.exe")) { UseShellExecute = true, Arguments = auto ? "/auto" : "" });
             Application.Current.Shutdown();
         }

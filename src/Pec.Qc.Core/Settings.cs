@@ -47,6 +47,13 @@ public sealed class Settings
     /// <summary>Folder (server share) or web address that holds latest.json, PecQcSetup.exe and payload.zip of the newest release.</summary>
     public string? UpdateSource { get; set; }
 
+    /// <summary>The company's release PUBLIC key (XML). When set, an update is only accepted if its release file is signed with the matching private key. Comes from office-defaults.json.</summary>
+    public string? UpdatePublicKey { get; set; }
+
+    /// <summary>"full" (default): the activity log keeps what people asked and what the assistant answered. "metadata": only who, when, which tool and whether it worked; the texts are not recorded. For clients whose drawings and data must not be copied into a log.</summary>
+    public string? ActivityDetail { get; set; }
+    [JsonIgnore] public bool ActivityMetadataOnly => string.Equals(ActivityDetail, "metadata", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>How often the user is asked before Claude saves something shared (skills, lessons, requirement packs, tools): task (once per task, the default) | strict (every write) | off (never ask).</summary>
     public string ApprovalMode { get; set; } = "task";
 

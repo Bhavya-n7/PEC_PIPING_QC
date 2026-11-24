@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using Pec.Qc.Core.Knowledge;
 
@@ -21,8 +21,10 @@ public static class ActivityLog
 
     public static void Write(Settings s, UserIdentity who, string type, string text, string? tool = null, bool? ok = null, string? chatId = null, string? project = null, string? detail = null)
     {
+        // metadata only: nothing that was typed, read or answered is written (the correction mark is kept: it is a count, not a text)
+        var meta = s.ActivityMetadataOnly;
         var row = new ActivityRow(DateTime.UtcNow.ToString("s") + "Z", who.Name, who.EmployeeCode, who.Company, Environment.MachineName, chatId ?? "", project ?? "", type,
-            Trunc(LessonStore.Scrub(text), Cap(type)), tool ?? "", ok, Trunc(LessonStore.Scrub(detail ?? ""), 700));
+            meta ? "(not recorded)" : Trunc(LessonStore.Scrub(text), Cap(type)), tool ?? "", ok, meta ? ((detail ?? "").Contains("correction", StringComparison.OrdinalIgnoreCase) ? "correction" : "") : Trunc(LessonStore.Scrub(detail ?? ""), 700));
         var line = JsonSerializer.Serialize(row, Json) + "\n";
         var file = $"{who.FileKey}-{Environment.MachineName}.jsonl";
         foreach (var root in new[] { Directory_(s), Path.Combine(Settings.DataDirectory, "activity") }.Distinct())
@@ -38,7 +40,7 @@ public static class ActivityLog
         }
     }
 
-    private static string Trunc(string t, int max) => t.Length <= max ? t : t[..max] + "…";
+    private static string Trunc(string t, int max) => t.Length <= max ? t : t[..max] + "â€¦";
 
     /// <summary>Everything logged since a date, newest first, optionally for one person (name or employee code) or containing some words.</summary>
     public static IReadOnlyList<ActivityRow> Read(Settings s, DateTime sinceUtc, string? who = null, string? contains = null, string? type = null, int limit = 200)

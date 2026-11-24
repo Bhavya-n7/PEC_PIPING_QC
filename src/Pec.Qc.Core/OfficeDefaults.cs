@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Pec.Qc.Core;
 
@@ -7,10 +7,10 @@ namespace Pec.Qc.Core;
 /// company's server. The release build writes the file from the release manager's private config, so server names never live in the source repository.
 /// A user's own settings always win; the defaults only fill what is empty.
 /// </summary>
-public sealed record OfficeDefaults(string? SharedRoot, string? UpdateSource)
+public sealed record OfficeDefaults(string? SharedRoot, string? UpdateSource, string? UpdatePublicKey = null)
 {
     public const string FileName = "office-defaults.json";
-    public static readonly OfficeDefaults None = new(null, null);
+    public static readonly OfficeDefaults None = new(null, null, null);
 
     public static OfficeDefaults Load(params string[] extraFolders)
     {
@@ -35,5 +35,7 @@ public sealed record OfficeDefaults(string? SharedRoot, string? UpdateSource)
     {
         if (string.IsNullOrWhiteSpace(s.SharedRoot) && !string.IsNullOrWhiteSpace(SharedRoot)) s.SharedRoot = SharedRoot;
         if (string.IsNullOrWhiteSpace(s.UpdateSource) && !string.IsNullOrWhiteSpace(UpdateSource)) s.UpdateSource = UpdateSource;
+        // the release key is the company's, not the user's: it always comes from the shipped defaults, so a settings file cannot switch the check off
+        if (!string.IsNullOrWhiteSpace(UpdatePublicKey)) s.UpdatePublicKey = UpdatePublicKey;
     }
 }

@@ -13,6 +13,7 @@ if (-not (Test-Path $cfgFile)) { throw 'config.local.json not found: copy config
 $cfg = Get-Content $cfgFile -Raw | ConvertFrom-Json
 if (-not $cfg.shared_root -or $cfg.shared_root -like '*<*') { throw 'shared_root is not set in config.local.json.' }
 New-Item -ItemType Directory -Force $Out | Out-Null
-$json = [ordered]@{ SharedRoot = $cfg.shared_root; UpdateSource = $(if ($cfg.update_source) { $cfg.update_source } else { $null }) } | ConvertTo-Json
+# update_public_key (the PUBLIC half, made by scripts\new-release-key.ps1): every PC then refuses an update that is not signed with the release key
+$json = [ordered]@{ SharedRoot = $cfg.shared_root; UpdateSource = $(if ($cfg.update_source) { $cfg.update_source } else { $null }); UpdatePublicKey = $(if ($cfg.update_public_key) { $cfg.update_public_key } else { $null }) } | ConvertTo-Json
 [System.IO.File]::WriteAllText((Join-Path $Out 'office-defaults.json'), $json, (New-Object System.Text.UTF8Encoding($false)))
 "Wrote $(Join-Path $Out 'office-defaults.json')"

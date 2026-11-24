@@ -1,15 +1,21 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Text.Json;
 
 namespace Pec.Qc.Core.Setup;
 
 /// <summary>The published latest release: <c>latest.json</c> next to the installer, on a server share or a web address.</summary>
-public sealed record ReleaseInfo(string Version, string Notes, string Setup, DateTime? Released);
+public sealed record ReleaseInfo(string Version, string Notes, string Setup, DateTime? Released, string? SetupSha256 = null, string? PayloadSha256 = null);
 
 public sealed record UpdateCheck(bool Available, string Current, ReleaseInfo? Latest, string? Error)
 {
     /// <summary>Where Setup can be started from (a file path or a URL), when an update is available.</summary>
     public string? SetupLocation { get; init; }
+
+    /// <summary>True when the release file carried a valid signature by the company's release key (a public key is configured and it matched).</summary>
+    public bool Authenticated { get; init; }
+
+    /// <summary>True when this PC has a release public key, so an unsigned or wrongly signed release is refused.</summary>
+    public bool KeyConfigured { get; init; }
 }
 
 /// <summary>
@@ -24,29 +30,42 @@ public static class Updates
     public static string CurrentVersion =>
         (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0] ?? "0.0.0";
 
-    public static async Task<UpdateCheck> CheckAsync(string? source, string? current = null, CancellationToken ct = default)
+    public static async Task<UpdateCheck> CheckAsync(string? source, string? current = null, CancellationToken ct = default, string? publicKeyXml = null)
     {
+        var keyConfigured = !string.IsNullOrWhiteSpace(publicKeyXml);
         current ??= CurrentVersion;
         if (string.IsNullOrWhiteSpace(source)) return new UpdateCheck(false, current, null, null);
         try
         {
-            string json; string baseLocation;
+            byte[] raw; string? sig = null; string baseLocation;
             if (source.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || source.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
                 baseLocation = source.TrimEnd('/') + "/";
-                json = await Http.GetStringAsync(baseLocation + FileName, ct);
+                raw = await Http.GetByteArrayAsync(baseLocation + FileName, ct);
+                if (keyConfigured) { try { sig = await Http.GetStringAsync(baseLocation + UpdateTrust.SignatureFile, ct); } catch (HttpRequestException) { } }
             }
             else
             {
                 var file = Directory.Exists(source) ? Path.Combine(source, FileName) : source;
                 if (!File.Exists(file)) return new UpdateCheck(false, current, null, $"No {FileName} in {source}");
                 baseLocation = Path.GetDirectoryName(Path.GetFullPath(file))! + Path.DirectorySeparatorChar;
-                json = await File.ReadAllTextAsync(file, ct);
+                raw = await File.ReadAllBytesAsync(file, ct);
+                var sigFile = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(file))!, UpdateTrust.SignatureFile);
+                if (keyConfigured && File.Exists(sigFile)) sig = await File.ReadAllTextAsync(sigFile, ct);
             }
+            var authenticated = false;
+            if (keyConfigured)
+            {
+                // a release that is not signed by the company key is never offered, however new its version says it is
+                if (sig is null) return new UpdateCheck(false, current, null, "The release in the update folder is not signed (no latest.json.sig): it was ignored.") { KeyConfigured = true };
+                if (!UpdateTrust.Verify(raw, sig, publicKeyXml!)) return new UpdateCheck(false, current, null, "The release in the update folder has an invalid signature: it was ignored. Tell the release manager.") { KeyConfigured = true };
+                authenticated = true;
+            }
+            var json = System.Text.Encoding.UTF8.GetString(raw).TrimStart('\uFEFF');
             var latest = JsonSerializer.Deserialize<ReleaseInfo>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             if (latest is null || string.IsNullOrWhiteSpace(latest.Version)) return new UpdateCheck(false, current, null, "The release file is empty or not valid.");
             var newer = IsNewer(latest.Version, current);
-            return new UpdateCheck(newer, current, latest, null) { SetupLocation = newer ? baseLocation + (string.IsNullOrWhiteSpace(latest.Setup) ? "PecQcSetup.exe" : latest.Setup) : null };
+            return new UpdateCheck(newer, current, latest, null) { Authenticated = authenticated, KeyConfigured = keyConfigured, SetupLocation = newer ? baseLocation + (string.IsNullOrWhiteSpace(latest.Setup) ? "PecQcSetup.exe" : latest.Setup) : null };
         }
         catch (Exception e) when (e is IOException or HttpRequestException or JsonException or TaskCanceledException or UnauthorizedAccessException)
         {

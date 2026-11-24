@@ -43,7 +43,7 @@ public static class EnvironmentTools
         }
         else shared = new { configured = false, note = "No shared office folder is set: skills, lessons and projects are kept on this PC only." };
 
-        var update = await Updates.CheckAsync(s.EffectiveUpdateSource);
+        var update = await Updates.CheckAsync(s.EffectiveUpdateSource, null, default, s.UpdatePublicKey);
         var problems = new List<string>();
         if (!who.IsComplete) problems.Add("Identity not set: name and employee code are asked once in the app.");
         if (!s.HasShared) problems.Add("No shared office folder configured.");
@@ -58,7 +58,7 @@ public static class EnvironmentTools
             activeProject = project is null ? null : new { project.Name, project.Client, project.ProjectNo, project.ModelFile, project.InputsFolder, project.RulePacks },
             inputs = InputsSummary(project, problems),
             navisworks = nav is null ? null : new { nav.Name, nav.Root },
-            update = new { available = update.Available, latest = update.Latest?.Version, error = update.Error },
+            update = new { available = update.Available, latest = update.Latest?.Version, error = update.Error, signed = update.Authenticated, checkedAgainstCompanyKey = update.KeyConfigured },
             ready = problems.Count == 0,
             problems,
         };

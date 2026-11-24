@@ -80,7 +80,10 @@ if (Test-Path $cl) {
   $m = [regex]::Match($text, '(?s)## ' + [regex]::Escape($Version) + '[^\r\n]*\r?\n(.*?)(\r?\n## |\z)')
   if ($m.Success) { $notes = $m.Groups[1].Value.Trim() } else { Write-Warning "CHANGELOG.md has no '## $Version' section: the release notes are empty." }
 }
-@{ Version = $Version; Notes = $notes; Setup = 'PecQcSetup.exe'; Released = (Get-Date).ToString('s') } | ConvertTo-Json | Set-Content (Join-Path $dist 'latest.json') -Encoding UTF8
+# the SHA-256 of both files that Setup and the update copy: the release file is signed by publish-release.ps1, so these cannot be changed on the share
+$setupHash = (Get-FileHash (Join-Path $dist 'PecQcSetup.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+$payloadHash = (Get-FileHash (Join-Path $dist 'payload.zip') -Algorithm SHA256).Hash.ToLowerInvariant()
+@{ Version = $Version; Notes = $notes; Setup = 'PecQcSetup.exe'; Released = (Get-Date).ToString('s'); SetupSha256 = $setupHash; PayloadSha256 = $payloadHash } | ConvertTo-Json | Set-Content (Join-Path $dist 'latest.json') -Encoding UTF8
 
 Remove-Item $stage -Recurse -Force
 Get-ChildItem $dist | Select-Object Name, @{n = 'MB'; e = { [math]::Round($_.Length / 1MB, 1) } } | Format-Table -AutoSize

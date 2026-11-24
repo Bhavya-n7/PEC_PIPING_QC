@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using Pec.Qc.Core.Knowledge;
@@ -16,7 +16,9 @@ public static class TrainingTools
         [Description("Folder with the documents to convert")] string sourceFolder,
         CancellationToken ct = default)
     {
+        if (Resolve.Require(Pec.Qc.Core.Users.QcRole.Lead, "Converting documents into the shared knowledge pack") is { } denied) return denied;
         if (!Directory.Exists(sourceFolder)) throw new McpException($"Folder not found: {sourceFolder}");
+        if (Resolve.NeedApproval("convert_training", Path.GetFullPath(sourceFolder).ToLowerInvariant(), $"Convert the documents in {sourceFolder} into the shared knowledge pack", PackDir()) is { } wait) return wait;
         var report = await Task.Run(() => TrainingPack.Convert(sourceFolder, PackDir()), ct);
         return new
         {
