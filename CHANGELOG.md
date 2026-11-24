@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.1.0 - first release candidate (Phases 0-4)
+- Phase 9: self-learning. Offline queue (lessons and activity kept while the share is away are sent back), lesson curation (learn_pending, learn_review, generated LEARNED.md) and an activity summary, with review and activity windows for the QC lead; the activity report is now lead / admin only.
 - GA check for piping plans (tested on the real client sample): line numbers with sizes and elevations, drawing references, matchlines and tier read; line numbers checked against the model, line list and P&ID text; the Navisworks runner now opens .nwc and .nwf files.
 - Phase 8: GA drawing check. The model export now includes equipment with its bounding box; GA reader (tags, coordinates, elevations, scale, revision, north arrow); tags and coordinates checked against the model, tags against P&IDs and vendor data; tools ga_read and ga_check. Dimensions, nozzles and clearances are listed as not verified.
 - Phase 7: P&ID check. Redrawn P&ID against the client's original on their text (line numbers, tags, labels, notes, horizontal and rotated), missing / changed / extra / moved items with sheet and zone; tools pid_read and pid_compare; the graphics are always reported as not verified.

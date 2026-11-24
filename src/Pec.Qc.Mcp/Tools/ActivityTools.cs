@@ -28,6 +28,7 @@ public static class ActivityTools
         [Description("Only this type of line")] string? type = null,
         [Description("How many lines to return, 1-300")] int limit = 60)
     {
+        if (Resolve.Require(QcRole.Lead, "Reading what other people asked the assistant") is { } denied) return denied;
         var s = Resolve.Settings();
         var since = DateTime.UtcNow.AddDays(-Math.Clamp(days, 1, 365));
         var all = ActivityLog.Read(s, since, who, contains, type, 2000);
@@ -46,6 +47,23 @@ public static class ActivityTools
             latest = all.Take(Math.Clamp(limit, 1, 300)).Select(r => new { r.Ts, r.User, r.EmployeeCode, chat = r.ChatId, r.Type, r.Tool, r.Ok, text = r.Text.Length > 300 ? r.Text[..300] + "…" : r.Text, r.Detail }),
             location = ActivityLog.Directory_(s),
             note = all.Count == 0 ? "Nothing logged for that selection." : "Look at corrections and tool errors: they are where the assistant was inaccurate. Record the lesson with learn_record and, if a tool was wrong, fix and save it again.",
+        };
+    }
+
+    [McpServerTool(Name = "activity_summary", ReadOnly = true)]
+    [Description("QC LEAD: the activity as a table, one row per day and person: prompts, how many were corrections, tool calls, tool errors, errors, chats and the most used tools, plus the totals per type of line. Use it to see who uses the assistant, where it is being corrected and where tools fail. For the detail of one person or day use activity_report.")]
+    public static object Summary([Description("A name or an employee code; empty = everyone")] string? who = null, [Description("How many days back, 1-365")] int days = 7)
+    {
+        if (Resolve.Require(QcRole.Lead, "Reading the team's activity") is { } denied) return denied;
+        var s = Resolve.Settings();
+        var since = DateTime.UtcNow.AddDays(-Math.Clamp(days, 1, 365));
+        var all = ActivityLog.Read(s, since, who, null, null, 2000);
+        return new
+        {
+            since = since.ToString("yyyy-MM-dd"), lines = all.Count,
+            perDay = ActivitySummary.ByDay(all).Select(d => new { d.Day, d.User, d.EmployeeCode, d.Prompts, d.Corrections, d.ToolCalls, d.ToolErrors, d.Errors, d.Chats, d.TopTools }).ToList(),
+            perType = ActivitySummary.ByType(all).Select(t => new { t.Type, t.Count }).ToList(),
+            location = ActivityLog.Directory_(s),
         };
     }
 }

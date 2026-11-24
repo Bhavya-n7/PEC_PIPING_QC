@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -73,6 +73,28 @@ public sealed class LessonStore(Settings settings)
     /// they do not wait for a curator.</summary>
     public IReadOnlyList<Lesson> Inbox()
     {
+        var rejected = Rejected();
+        var seen = new HashSet<string>();
+        return RawInbox().Where(l => !rejected.Contains(l.Id)).Where(l => seen.Add(NormalKey(l.Text))).ToList();
+    }
+
+    /// <summary>The ids the curator rejected: they are hidden from everyone.</summary>
+    public HashSet<string> Rejected()
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var p = Path.Combine(LearningRoot, "rejected.jsonl");
+        if (!File.Exists(p)) return ids;
+        foreach (var line in File.ReadLines(p))
+        {
+            try { using var d = JsonDocument.Parse(line); if (d.RootElement.TryGetProperty("id", out var id) && id.GetString() is { Length: > 0 } v) ids.Add(v); }
+            catch (JsonException) { }
+        }
+        return ids;
+    }
+
+    /// <summary>Every lesson on the inbox (all machines, all months, this PC's offline copies too), newest first, repeats included.</summary>
+    public IReadOnlyList<Lesson> RawInbox()
+    {
         // the shared inbox, plus lessons kept on this PC while the shared folder was offline
         var roots = new[] { Path.Combine(LearningRoot, "inbox"), Path.Combine(Settings.DataDirectory, "learning", "inbox") }.Distinct().Where(Directory.Exists).ToList();
         var all = new List<Lesson>();
@@ -88,11 +110,10 @@ public sealed class LessonStore(Settings settings)
             }
             catch (IOException) { }
         }
-        var seen = new HashSet<string>();
-        return all.OrderByDescending(l => l.Ts).Where(l => seen.Add(NormalKey(l.Text))).ToList();
+        return all.OrderByDescending(l => l.Ts).GroupBy(l => l.Id).Select(g => g.First()).ToList();
     }
 
-    private static string NormalKey(string text) { var t = Regex.Replace(text.ToLowerInvariant(), @"[^a-z0-9]+", " ").Trim(); return t.Length > 80 ? t[..80] : t; }
+    public static string NormalKey(string text) { var t = Regex.Replace(text.ToLowerInvariant(), @"[^a-z0-9]+", " ").Trim(); return t.Length > 80 ? t[..80] : t; }
 
     /// <summary>Approved lessons plus the live inbox.</summary>
     public IReadOnlyList<Lesson> AllLessons() => Approved().Concat(Inbox()).GroupBy(l => l.Id).Select(g => g.First()).ToList();
@@ -119,17 +140,18 @@ public sealed class LessonStore(Settings settings)
             if (p.Length > 0 && File.Exists(p)) { curated = File.ReadAllText(p); break; }
 
         // what colleagues learned in the last days: corrections, recipes, gotchas and failures help the next person at once
-        var live = Inbox().Where(l => l.Kind is "correction" or "recipe" or "gotcha" or "failure" or "preference").Take(latest).ToList();
+        var approvedIds = Approved().Select(l => l.Id).ToHashSet();
+        var live = Inbox().Where(l => !approvedIds.Contains(l.Id)).Where(l => l.Kind is "correction" or "recipe" or "gotcha" or "failure" or "preference").Take(latest).ToList();
         if (live.Count == 0) return curated;
         var sb = new StringBuilder(curated.TrimEnd());
         if (sb.Length > 0) sb.AppendLine().AppendLine();
         sb.AppendLine("## Latest lessons from the team (live: apply them before generic advice)");
         foreach (var l in live)
         {
-            var text = l.Text.Length > 700 ? l.Text[..700] + "…" : l.Text;
+            var text = l.Text.Length > 700 ? l.Text[..700] + "â€¦" : l.Text;
             sb.AppendLine($"- [{l.Kind}{(l.Tool.Length > 0 ? ", " + l.Tool : "")}] {text}");
         }
         var all = sb.ToString();
-        return all.Length > maxChars ? all[..maxChars] + "\n…" : all;
+        return all.Length > maxChars ? all[..maxChars] + "\nâ€¦" : all;
     }
 }

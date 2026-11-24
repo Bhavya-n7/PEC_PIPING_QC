@@ -33,5 +33,7 @@ builder.Services
     .WithStdioServerTransport()
     .WithToolsFromAssembly();
 
+// lessons and activity kept on this PC while the shared folder was away go back to it now (in the background: never delays start)
+_ = Task.Run(() => { try { Pec.Qc.Core.Knowledge.OfflineQueue.Sync(Pec.Qc.Core.Settings.Load()); } catch { } });
 await builder.Build().RunAsync();
 return 0;
