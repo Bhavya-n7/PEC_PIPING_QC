@@ -40,6 +40,38 @@ public sealed record ModelLine(string Name, IReadOnlyDictionary<string, string> 
     }
 }
 
+/// <summary>
+/// A piece of equipment (AVEVA EQUI) with its extent. <see cref="BboxMm"/> is the Navisworks bounding box in the same world coordinates as the pipes (min E, N, U, max E, N, U): it is
+/// reliable. The AVEVA POS attribute is only used as the origin when it lies inside that box (for some items it is a local or meaningless value).
+/// </summary>
+public sealed record ModelEquipment(string Name, string Tag, IReadOnlyDictionary<string, string> Attrs, string Path, double[]? BboxMm)
+{
+    public string Attr(string key) => Attrs.TryGetValue(key, out var v) ? v : "";
+    public bool HasBox => BboxMm is { Length: 6 };
+    public (double E, double N, double U)? Center => HasBox ? ((BboxMm![0] + BboxMm[3]) / 2, (BboxMm[1] + BboxMm[4]) / 2, (BboxMm[2] + BboxMm[5]) / 2) : null;
+
+    /// <summary>The AVEVA origin when it is inside the box (a tolerance of 1 m), else null.</summary>
+    public (double E, double N, double U)? Origin
+    {
+        get
+        {
+            if (Units.ParsePosition(Attr("POS")) is not { } p || !HasBox) return null;
+            var b = BboxMm!;
+            return p.E >= b[0] - 1000 && p.E <= b[3] + 1000 && p.N >= b[1] - 1000 && p.N <= b[4] + 1000 && p.U >= b[2] - 1000 && p.U <= b[5] + 1000 ? p : null;
+        }
+    }
+
+    /// <summary>The distance in mm from a point to the box (0 inside it).</summary>
+    public double DistanceToBox((double E, double N, double U) p)
+    {
+        if (!HasBox) return double.PositiveInfinity;
+        var b = BboxMm!;
+        double D(double v, double lo, double hi) => v < lo ? lo - v : v > hi ? v - hi : 0;
+        var dx = D(p.E, b[0], b[3]); var dy = D(p.N, b[1], b[4]); var dz = D(p.U, b[2], b[5]);
+        return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+    }
+}
+
 /// <summary>A pipe that occurs more than once in the Navisworks tree. SameFile: the copies are in one appended model file (a real duplicate); otherwise they are in different appended files (normal in a federated model).</summary>
 public sealed record ModelDuplicate(int Count, bool Identical, bool SameFile, IReadOnlyList<string> Paths);
 
@@ -55,6 +87,11 @@ public sealed partial class ModelSnapshot
     public Dictionary<string, ModelLine> Lines { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, ModelDuplicate> Duplicates { get; } = new(StringComparer.Ordinal);
     public List<(string Name, (double E, double N, double U)? Pos)> Nozzles { get; } = [];
+    /// <summary>Equipment by name, first record kept. Empty for a snapshot exported before equipment was read: <see cref="HasEquipment"/> is false and the model must be exported again.</summary>
+    public Dictionary<string, ModelEquipment> Equipment { get; } = new(StringComparer.Ordinal);
+    public bool HasEquipment { get; private set; }
+    /// <summary>How many items of each AVEVA type the model has (from the export).</summary>
+    public Dictionary<string, int> TypeCounts { get; } = new(StringComparer.Ordinal);
     private List<(string Line, (double E, double N, double U) P)>? _allEnds;
 
     public static string NormLine(string? name) => (name ?? "").Trim().TrimStart('/').Replace('”', '"').ToUpperInvariant();
@@ -75,7 +112,32 @@ public sealed partial class ModelSnapshot
         if (root.TryGetProperty("nozzles", out var nz) && nz.ValueKind == JsonValueKind.Array)
             foreach (var z in nz.EnumerateArray())
                 snap.Nozzles.Add((Str(z, "name"), Units.ParsePosition(Attrs(z).GetValueOrDefault("POS"))));
+        if (root.TryGetProperty("equipment", out var eqs) && eqs.ValueKind == JsonValueKind.Array)
+        {
+            snap.HasEquipment = true;
+            foreach (var e in eqs.EnumerateArray())
+            {
+                var name = Str(e, "name");
+                if (name.Length == 0 || snap.Equipment.ContainsKey(name)) continue;
+                double[]? box = null;
+                if (e.TryGetProperty("bboxMm", out var bb) && bb.ValueKind == JsonValueKind.Array && bb.GetArrayLength() == 6) box = bb.EnumerateArray().Select(x => x.GetDouble()).ToArray();
+                snap.Equipment[name] = new ModelEquipment(name, TagOf(name), Attrs(e), Str(e, "path"), box);
+            }
+        }
+        if (root.TryGetProperty("typeCounts", out var tc) && tc.ValueKind == JsonValueKind.Object)
+            foreach (var p in tc.EnumerateObject()) if (p.Value.TryGetInt32(out var n2)) snap.TypeCounts[p.Name] = n2;
         return snap;
+    }
+
+    /// <summary>The comparison key of a tag: upper case without hyphens, underscores, slashes and spaces (60-D-302 and 60D302 are the same tag).</summary>
+    public static string TagKey(string? tag) => Regex.Replace((tag ?? "").ToUpperInvariant(), @"[\s\-_/]", "");
+
+    /// <summary>The tag part of an equipment name: "/60D302_CONDENSATE_POT" gives "60D302".</summary>
+    public static string TagOf(string name)
+    {
+        var n = name.TrimStart('/');
+        var us = n.IndexOf('_');
+        return us > 0 ? n[..us] : n;
     }
 
     private static string Str(JsonElement e, string name) => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
@@ -118,6 +180,15 @@ public sealed partial class ModelSnapshot
             return; // the first record is kept
         }
         Lines[line.Name] = line;
+    }
+
+    /// <summary>Equipment by tag (any spelling of it), or by the leading plant code of a longer name such as 60D301A-ADSORBER-A.</summary>
+    public IReadOnlyList<ModelEquipment> FindEquipment(string? tag)
+    {
+        var k = TagKey(tag);
+        if (k.Length == 0) return [];
+        var exact = Equipment.Values.Where(e => TagKey(e.Tag) == k).ToList();
+        return exact.Count > 0 ? exact : Equipment.Values.Where(e => TagKey(e.Tag).StartsWith(k, StringComparison.Ordinal) && TagKey(e.Tag).Length <= k.Length + 1).ToList();
     }
 
     public ModelLine? Find(string? name) => Lines.GetValueOrDefault(NormLine(name));

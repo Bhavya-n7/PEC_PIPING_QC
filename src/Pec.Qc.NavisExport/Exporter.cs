@@ -61,6 +61,10 @@ namespace PecQc
             Document doc = Autodesk.Navisworks.Api.Application.ActiveDocument;
             List<object> lines = new List<object>();
             List<object> nozzles = new List<object>();
+            List<object> equipment = new List<object>();
+            Dictionary<string, int> typeCounts = new Dictionary<string, int>();
+            double toMm = 1.0;
+            try { toMm = UnitConversion.ScaleFactor(doc.Units, Autodesk.Navisworks.Api.Units.Millimeters); } catch { }
             int items = 0;
             string source = "";
             foreach (Model m in doc.Models)
@@ -70,6 +74,23 @@ namespace PecQc
                 {
                     items++;
                     string t = TypeOf(it);
+                    if (t != null) { int n; typeCounts.TryGetValue(t, out n); typeCounts[t] = n + 1; }
+                    if (t == "EQUI")
+                    {
+                        Dictionary<string, object> eq = Node(it, t);
+                        List<string> epath = new List<string>();
+                        foreach (ModelItem a in it.Ancestors) { epath.Add(a.DisplayName); }
+                        epath.Reverse();
+                        eq["path"] = string.Join(" > ", epath.ToArray());
+                        try
+                        {
+                            BoundingBox3D bb = it.BoundingBox();
+                            eq["bboxMm"] = new double[] { bb.Min.X * toMm, bb.Min.Y * toMm, bb.Min.Z * toMm, bb.Max.X * toMm, bb.Max.Y * toMm, bb.Max.Z * toMm };
+                        }
+                        catch { }
+                        equipment.Add(eq);
+                        continue;
+                    }
                     if (t == "NOZZ") { nozzles.Add(Node(it, t)); continue; }
                     if (t != "PIPE") continue;
 
@@ -109,6 +130,9 @@ namespace PecQc
             root["totalItems"] = items;
             root["lines"] = lines;
             root["nozzles"] = nozzles;
+            root["equipment"] = equipment;
+            root["typeCounts"] = typeCounts;
+            root["unitsToMm"] = toMm;
 
             JavaScriptSerializer js = new JavaScriptSerializer();
             js.MaxJsonLength = int.MaxValue;

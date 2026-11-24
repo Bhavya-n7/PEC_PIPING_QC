@@ -77,7 +77,7 @@ public static class ModelTools
             return new
             {
                 exported = true, snapshot = target, earlierKept = kept, lines = snap.Lines.Count, nozzles = snap.Nozzles.Count, items = snap.TotalItems,
-                duplicatedLines = snap.Duplicates.Count, seconds = (int)r.Elapsed.TotalSeconds, audit, next = "Tell the user the model is exported and how many lines it holds.",
+                duplicatedLines = snap.Duplicates.Count, equipment = snap.Equipment.Count, seconds = (int)r.Elapsed.TotalSeconds, audit, next = "Tell the user the model is exported and how many lines it holds.",
             };
         }
         finally { try { File.Delete(tmp); } catch { } }
@@ -102,7 +102,8 @@ public static class ModelTools
         return new
         {
             exported = true, models = all.Select(m => new { m.Name, written = m.Written.ToString("yyyy-MM-dd HH:mm"), mb = Math.Round(m.Bytes / 1048576.0, 1) }).ToList(),
-            usedModel = stored.Name, snapshot = stored.Path, exportedAt = snap.Exported, sourceModel = snap.Source, lines = snap.Lines.Count, nozzles = snap.Nozzles.Count, itemsInModel = snap.TotalItems,
+            usedModel = stored.Name, snapshot = stored.Path, exportedAt = snap.Exported, sourceModel = snap.Source, lines = snap.Lines.Count, nozzles = snap.Nozzles.Count, equipment = snap.Equipment.Count, itemsInModel = snap.TotalItems,
+            equipmentWarning = snap.HasEquipment ? null : "This snapshot was exported before equipment was read: GA drawings cannot be checked against it. Export the model again (model_export).",
             componentTypes = types, duplicatedLines = dups, staleWarning = stale,
             next = "Give the user the counts. Mention the duplicated lines and the stale warning if there are any.",
         };
