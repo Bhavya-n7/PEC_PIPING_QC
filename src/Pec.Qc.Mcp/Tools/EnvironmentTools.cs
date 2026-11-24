@@ -16,7 +16,7 @@ public static class EnvironmentTools
     {
         var s = Resolve.Settings();
         var who = Resolve.Who();
-        var me = UserRegistry.Touch(s, who);
+        var me = UserRegistry.Touch(s, who, newSession: false);
         var project = Resolve.ActiveProject();
         var nav = Resolve.Navisworks();
 

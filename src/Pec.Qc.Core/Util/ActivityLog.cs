@@ -4,7 +4,7 @@ using Pec.Qc.Core.Knowledge;
 
 namespace Pec.Qc.Core.Util;
 
-public sealed record ActivityRow(string Ts, string User, string EmployeeCode, string Company, string Machine, string ChatId, string Site, string Type, string Text, string Tool, bool? Ok, string Detail);
+public sealed record ActivityRow(string Ts, string User, string EmployeeCode, string Company, string Machine, string ChatId, string Project, string Type, string Text, string Tool, bool? Ok, string Detail);
 
 /// <summary>
 /// The team's activity log: what each user asked the assistant and what it did (their prompts, its answers, every tool it used and how that ended). One line per
@@ -19,9 +19,9 @@ public static class ActivityLog
 
     private static int Cap(string type) => type switch { "prompt" => 4000, "answer" => 2500, _ => 700 };
 
-    public static void Write(Settings s, UserIdentity who, string type, string text, string? tool = null, bool? ok = null, string? chatId = null, string? site = null, string? detail = null)
+    public static void Write(Settings s, UserIdentity who, string type, string text, string? tool = null, bool? ok = null, string? chatId = null, string? project = null, string? detail = null)
     {
-        var row = new ActivityRow(DateTime.UtcNow.ToString("s") + "Z", who.Name, who.EmployeeCode, who.Company, Environment.MachineName, chatId ?? "", site ?? "", type,
+        var row = new ActivityRow(DateTime.UtcNow.ToString("s") + "Z", who.Name, who.EmployeeCode, who.Company, Environment.MachineName, chatId ?? "", project ?? "", type,
             Trunc(LessonStore.Scrub(text), Cap(type)), tool ?? "", ok, Trunc(LessonStore.Scrub(detail ?? ""), 700));
         var line = JsonSerializer.Serialize(row, Json) + "\n";
         var file = $"{who.FileKey}-{Environment.MachineName}.jsonl";

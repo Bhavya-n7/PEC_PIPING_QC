@@ -106,14 +106,12 @@ public static class ChatAttachments
     public static string HowToRead(Attachment a) => a.Kind switch
     {
         AttachKind.Image => "an image: look at it with the Read tool",
-        AttachKind.Pdf => "a PDF: read it with the Read tool (if it is a P&ID or drawing, pid_read also lists its tags and lines)",
-        AttachKind.Office => "read it with the file_read tool (text of the Word, Excel, PowerPoint or CSV file); to read cells or change a workbook or document use excel_inspect, excel_read, excel_edit, word_edit (skill smart3d-office)",
+        AttachKind.Pdf => "a PDF (drawing or document): read it with the Read tool, or pdf_read for the text of every page (on a drawing that text carries the tags, line numbers and notes)",
+        AttachKind.Office => "read it with the file_read tool (text of the Word, Excel, PowerPoint or CSV file); to read cells or change a workbook or document use excel_inspect, excel_read, excel_edit, word_edit",
         AttachKind.Text => "a text file: read it with the Read tool",
-        AttachKind.Cad => Path.GetExtension(a.Name).Equals(".dwg", StringComparison.OrdinalIgnoreCase)
-            ? "a DWG drawing: it cannot be read directly. Look for a converter on this PC (ODAFileConverter, AutoCAD accoreconsole, Python ezdxf) and convert it to DXF, then use dxf_read; only if nothing works, tell the user to save it as DXF"
-            : "a DXF drawing: read it with the dxf_read tool",
-        AttachKind.Scan => "an E57 laser scan: use e57_info (header and scans), e57_points (points) and the 2d-to-3d skill",
-        AttachKind.Navis => "a Navisworks model: use the model-conversion skill (convert_extract / convert_plan)",
+        AttachKind.Cad => "a CAD drawing (DXF or DWG): it cannot be read here; tell the user to export it to PDF and attach that",
+        AttachKind.Scan => "a laser scan: it cannot be read here; say so",
+        AttachKind.Navis => "a Navisworks model: it cannot be read as an attachment; the model is read by its path from the project card, so tell the user to set it there",
         AttachKind.OldOffice => "an old Office format: convert it (for example with Excel/Word through PowerShell COM, or LibreOffice) to xlsx, docx or pptx and read that; only if nothing works, tell the user to save it in the new format",
         _ => "an unknown file type: try the Read tool, and tell the user if it cannot be read",
     };

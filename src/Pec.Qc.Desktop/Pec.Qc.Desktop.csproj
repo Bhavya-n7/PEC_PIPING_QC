@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>PecQcAssistant</AssemblyName>
+    <RootNamespace>Pec.Qc.Desktop</RootNamespace>
+    <Product>PEC QC Assistant</Product>
+    <ApplicationIcon>..\..\assets\app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pec.Qc.Core\Pec.Qc.Core.csproj" />
+  </ItemGroup>
+
+  <!-- the MCP server and the bundled content travel with the app: <app>\mcp\Pec.Qc.Mcp.exe, <app>\skills\*\SKILL.md, <app>\prompts, <app>\help -->
+  <ItemGroup>
+    <ProjectReference Include="..\Pec.Qc.Mcp\Pec.Qc.Mcp.csproj" ReferenceOutputAssembly="false" />
+    <Content Include="..\..\skills\**\SKILL.md" Link="skills\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\prompts\*" Link="prompts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\help\*" Link="help\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="CopyMcpServer" AfterTargets="Build">
+    <ItemGroup>
+      <McpFiles Include="..\Pec.Qc.Mcp\bin\$(Configuration)\net10.0\win-x64\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(McpFiles)" DestinationFolder="$(OutDir)mcp\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <ItemGroup>
+    <Resource Include="..\..\assets\logo.png" Link="logo.png" />
+    <Resource Include="..\..\assets\logo-white.png" Link="logo-white.png" />
+    <Resource Include="..\..\assets\app.ico" Link="app.ico" />
+  </ItemGroup>
+
+</Project>

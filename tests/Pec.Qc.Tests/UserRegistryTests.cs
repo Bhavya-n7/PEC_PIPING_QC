@@ -68,6 +68,17 @@ public class UserRegistryTests
     }
 
     [Fact]
+    public void A_tool_refresh_updates_last_seen_but_does_not_count_another_session()
+    {
+        using var t = new TempDir();
+        var s = At(t.Path);
+        UserRegistry.Touch(s, Ravi);                                             // the app starts: session 1
+        var afterTool = UserRegistry.Touch(s, Ravi, newSession: false);         // qc_status / who_am_i from the MCP server
+        Assert.Equal(1, afterTool.Sessions);
+        Assert.Equal(2, UserRegistry.Touch(s, Ravi).Sessions);                   // the next app start is session 2
+    }
+
+    [Fact]
     public void A_role_is_changed_by_code_or_name_and_an_unknown_person_is_reported()
     {
         using var t = new TempDir();
@@ -133,7 +144,8 @@ public class SeedContentTests
         var f = Repo(Path.Combine("prompts", "quick-tasks.json"));
         Assert.NotEqual("", f);
         var tasks = QuickTasks.Load(f);
-        Assert.Equal(QuickTasks.Defaults.Select(x => (x.Id, x.Category, x.Title, x.Prompt)), tasks.Select(x => (x.Id, x.Category, x.Title, x.Prompt)));
+        Assert.Equal(QuickTasks.Defaults.Select(x => (x.Id, x.Category, x.Title, x.Prompt, x.Hint)), tasks.Select(x => (x.Id, x.Category, x.Title, x.Prompt, x.Hint)));
+        Assert.All(QuickTasks.Defaults, x => Assert.False(string.IsNullOrWhiteSpace(x.Hint), x.Id + " has no hint"));   // cards must not fall back to a cut-up prompt
     }
 
     [Fact]

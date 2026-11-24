@@ -131,14 +131,19 @@ Rules: seed missing files only, never overwrite shared files (people edit them);
 - Moved to Phase 9: a later **sync** of activity and lessons written while offline (today they stay on that PC); the fallback itself is verified
 - Exit met: two identities see each other's lessons and appear in the user registry on the real share
 
-### Phase 3: Desktop app (WPF)
-- [ ] Shell copied from the reference and adapted: theme, chat with markdown, tool steps, attachments, chat history, token display
-- [ ] First-run identity dialog (name, employee code, company), settings ("About you", shared folder, model/effort, approval mode)
-- [ ] Status lights: Claude, shared folder, Navisworks, project inputs
-- [ ] Approval window (what will be saved/published, where)
-- [ ] Projects view (cards) and Guide & FAQ
-- [ ] Quick-task cards for the three QC types
-- Exit: clicked through by a person: first run, chat, approval, project card
+### Phase 3: Desktop app (WPF) - DONE (checked by UI automation, not yet by a person)
+- [x] Shell ported from the reference and adapted (`Pec.Qc.Desktop`, `PecQcAssistant.exe`): theme, chat with markdown, collapsible tool steps, attachments, chat history, token display; the MCP server, skills, prompts and help travel with the app
+- [x] First-run identity dialog (name, employee code, company); the user is listed in the registry at start; the first person on a shared folder is told they are its administrator (not shown when there is no shared folder or an admin already exists)
+- [x] Settings rewritten for QC: shared folder and update source, "About you" with the role from the registry, autonomy and confirmations, Navisworks folder (found/not found), advanced folder overrides. The Smart 3D bridge and cloud-conversion cards are gone
+- [x] Status lights: Claude, **Navisworks**, **Project inputs** (folder present, file count), shared folder
+- [x] Approval window for shared saves (wording for QC), with the full protocol checked against the real MCP server
+- [x] Projects view: QC project card dialog (client, project no., Navisworks model, inputs folder defaulting to `projects/<name>/inputs` on the share, rule packs, details); cards are shared; active project per user
+- [x] Quick-task cards for the three QC types (each with a hint); Knowledge page (shared folder, skills, custom tools, lessons, documents, learning); Guide & FAQ page written for QC (help.md)
+- [x] `StoredChat`, activity and audit rows say Project instead of Site; audit write no longer fails on a share that denies a write; the registry counts a session per app start, not per tool call
+- Checked in the live app by Windows UI Automation (screenshots reviewed): first-run dialog, main window, all four lights, Add project (local and on the shared `_selftest` folder: card and default inputs folder created, user registered), a **real chat turn** through Claude Code and the MCP server (answer, token readout, activity log prompt/tool/result/answer/done), the approval window (pending, approve, save succeeded, later calls in the task pass), Knowledge page (6 cards), Guide (14 contents entries), Settings (role admin, Navisworks found)
+- Tests: 136 passed (+2 real-share tests skipped); guide and WPF thread-guard tests restored for the app; no text in the app mentions the product it was built from
+- **Not yet checked** (by automation or by a person): Edit/Delete/Share buttons on project cards, the quick-task question dialog, reopening a chat from history, attachments (drag, paste), the update bar, Sign in/out with Claude, high-DPI and small windows, a clean PC
+- Exit (open): a person clicks through first run, chat, approval and a project card on a clean PC (done together with the Setup test in Phase 4)
 
 ### Phase 4: Setup, packaging and auto-update
 - [ ] `PecQcSetup.exe` + `payload.zip` (self-contained, no .NET/Python needed), readiness checks, per-user install, Claude Code and Claude Desktop registration, skills copy, shortcut, uninstall, manifest

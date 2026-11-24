@@ -10,7 +10,7 @@ public class ChatHistoryTests
     [Fact] public void A_chat_is_saved_loaded_and_survives_a_restart()
     {
         using var t = new TempDir(); var h = new ChatHistory(t.Path);
-        var c = Chat("Pump P-102", ("user", "build a pump"), ("assistant", "done")); c.ClaudeSessionId = "abc-123"; c.Site = "Test server";
+        var c = Chat("Pump P-102", ("user", "build a pump"), ("assistant", "done")); c.ClaudeSessionId = "abc-123"; c.Project = "Test project";
         h.Save(c);
         var again = new ChatHistory(t.Path).Load(c.Id)!;                       // a new instance = the app restarted
         Assert.Equal("Pump P-102", again.Title); Assert.Equal("abc-123", again.ClaudeSessionId); Assert.Equal(2, again.Messages.Count);

@@ -37,7 +37,7 @@ public class ActivityAndIdentityTests
     {
         using var t = new TempDir(); var s = At(t.Path);
         var ann = new UserIdentity("Anita Rao", "E1234", "Petrocon"); var bob = new UserIdentity("Bob Das", "E2222", "Petrocon");
-        ActivityLog.Write(s, ann, "prompt", "Create a slab next to SLAB-01", chatId: "c1", site: "Test server", detail: "looks like a correction");
+        ActivityLog.Write(s, ann, "prompt", "Create a slab next to SLAB-01", chatId: "c1", project: "Test project", detail: "looks like a correction");
         ActivityLog.Write(s, ann, "tool", "model_run_csharp", "model_run_csharp", chatId: "c1", detail: "{\"write\":true}");
         ActivityLog.Write(s, ann, "result", "Sequence contains no matching element", "model_run_csharp", ok: false, chatId: "c1");
         ActivityLog.Write(s, bob, "prompt", "Model health check", chatId: "c2");

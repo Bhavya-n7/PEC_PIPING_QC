@@ -1,7 +1,8 @@
-<Solution>
+﻿<Solution>
   <Folder Name="/src/">
     <Project Path="src/Pec.Qc.Core/Pec.Qc.Core.csproj" />
     <Project Path="src/Pec.Qc.Mcp/Pec.Qc.Mcp.csproj" />
+    <Project Path="src/Pec.Qc.Desktop/Pec.Qc.Desktop.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Pec.Qc.Tests/Pec.Qc.Tests.csproj" />

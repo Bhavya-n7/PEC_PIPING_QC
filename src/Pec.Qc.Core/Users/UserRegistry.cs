@@ -79,7 +79,7 @@ public static class UserRegistry
     /// Records that this user is here. A new user is a qc-engineer, except that when the registry has no administrator yet the first person to register becomes one,
     /// so someone can manage the others (change it afterwards by editing the file or with set_user_role). An existing record keeps its role and first-seen date.
     /// </summary>
-    public static UserRecord Touch(Settings settings, UserIdentity who, string? localDirectory = null)
+    public static UserRecord Touch(Settings settings, UserIdentity who, string? localDirectory = null, bool newSession = true)
     {
         var dir = settings.EffectiveUsersDirectory;
         var existing = Read(FileFor(dir, who));
@@ -91,7 +91,7 @@ public static class UserRegistry
             Name = who.Name, EmployeeCode = who.EmployeeCode, Company = who.Company, Role = role,
             FirstSeen = existing?.FirstSeen is { Length: > 0 } f ? f : now, LastSeen = now,
             Version = Updates.CurrentVersion, Machine = Environment.MachineName, WindowsUser = Environment.UserName,
-            Sessions = (existing?.Sessions ?? 0) + 1,
+            Sessions = existing is null ? 1 : existing.Sessions + (newSession ? 1 : 0),   // the app counts a session at start; the tools only refresh last-seen
         };
         Save(settings, who, rec, localDirectory);
         return rec;

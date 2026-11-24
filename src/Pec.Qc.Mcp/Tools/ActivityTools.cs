@@ -15,7 +15,7 @@ public static class ActivityTools
     {
         var s = Resolve.Settings();
         var w = UserIdentity.Current(s);
-        var rec = UserRegistry.Touch(s, w);
+        var rec = UserRegistry.Touch(s, w, newSession: false);
         return new { w.Name, w.EmployeeCode, w.Company, complete = w.IsComplete, role = rec.Role, windowsUser = Environment.UserName, machine = Environment.MachineName };
     }
 

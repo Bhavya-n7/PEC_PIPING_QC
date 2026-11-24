@@ -128,7 +128,7 @@ public class ChatAttachmentTests
         Assert.Contains("attached 4 files", note);
         Assert.Contains("a.xlsx (2 KB) - read it with the file_read tool", note);
         Assert.Contains("b.png (1.4 MB) - an image: look at it with the Read tool", note);
-        Assert.Contains("dxf_read", note); Assert.Contains("save it as DXF", note);
+        Assert.Contains("export it to PDF", note); Assert.DoesNotContain("dxf_read", note);
         Assert.Contains(@"Path: C:\w\a.xlsx", note);
         Assert.Equal("", ChatAttachments.PromptNote([]));
     }

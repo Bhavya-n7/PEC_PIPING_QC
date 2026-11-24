@@ -18,7 +18,7 @@ public sealed class StoredChat
     public DateTime Updated { get; set; } = DateTime.Now;
     /// <summary>The Claude Code session this chat continues (--resume); null until the first answer.</summary>
     public string? ClaudeSessionId { get; set; }
-    public string? Site { get; set; }
+    public string? Project { get; set; }
     public List<StoredMessage> Messages { get; set; } = [];
 }
 

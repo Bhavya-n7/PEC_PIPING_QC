@@ -43,7 +43,58 @@ public class UpdatesTests
         Assert.NotNull(bad.Error);
     }
 
-    // Phase 3 adds: the in-app guide covers setup, updates and the FAQ (help/help.md), and the WPF thread guards for MainWindow.
+    [Fact]
+    public void The_guide_covers_setup_updates_and_the_faq()
+    {
+        var file = TestPaths.FindUp("help/help.md");
+        Assert.NotEqual("", file);
+        var text = File.ReadAllText(file);
+        var headings = Regex.Matches(text, @"^## (.+)$", RegexOptions.Multiline).Select(m => m.Groups[1].Value).ToList();
+        foreach (var must in new[] { "Setup", "Projects", "Quick tasks", "Approvals", "Knowledge", "Updates", "FAQ", "Troubleshooting" })
+            Assert.Contains(headings, h => h.Contains(must, StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("Sign in with Claude", text);
+        Assert.DoesNotContain("API key is needed", text.Replace("No API key is needed", ""));      // we never ask for one
+        // the three QC types and the read-only promise are what the product stands for
+        foreach (var must in new[] { "isometric", "P&ID", "GA drawing", "read-only", "REVIEW" })
+            Assert.Contains(must, text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Smart 3D", text);      // nothing left from the product this one was built from
+    }
+
+    [Theory]
+    [InlineData("src/Pec.Qc.Desktop/MainWindow.xaml.cs")]
+    [InlineData("src/Pec.Qc.Desktop/MainWindow.Chats.cs")]
+    public void Background_work_never_reads_or_writes_a_wpf_control(string file)
+    {
+        // WPF controls belong to the UI thread: inside Task.Run(...) only plain values captured beforehand may be used
+        var text = File.ReadAllText(TestPaths.FindUp(file));
+        var i = 0;
+        while ((i = text.IndexOf("Task.Run(", i, StringComparison.Ordinal)) >= 0)
+        {
+            var depth = 0; var j = text.IndexOf('(', i);
+            for (var k = j; k < text.Length; k++)
+            {
+                if (text[k] == '(') depth++;
+                else if (text[k] == ')' && --depth == 0) { j = k; break; }
+            }
+            var body = text[i..j];
+            Assert.DoesNotMatch(ControlAccess, body.Replace("Dispatcher.Invoke", ""));
+            i = j;
+        }
+    }
+
+    [Fact]
+    public void The_desktop_project_takes_its_version_from_the_one_place()
+    {
+        Assert.DoesNotContain("<Version>", File.ReadAllText(TestPaths.FindUp("src/Pec.Qc.Desktop/Pec.Qc.Desktop.csproj")));
+    }
+
+    [Fact]
+    public void No_text_in_the_desktop_app_still_talks_about_the_product_it_was_built_from()
+    {
+        var dir = Path.GetDirectoryName(TestPaths.FindUp("src/Pec.Qc.Desktop/Pec.Qc.Desktop.csproj"))!;
+        foreach (var f in Directory.GetFiles(dir, "*.*").Where(f => f.EndsWith(".cs") || f.EndsWith(".xaml")))
+            Assert.DoesNotContain("Smart 3D", File.ReadAllText(f));
+    }
     // Phase 4 adds the same thread guard for SetupWindow. They are added with the projects they guard, not skipped silently here.
 
     [Fact]

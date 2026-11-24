@@ -1,0 +1,60 @@
+<Window x:Class="Pec.Qc.Desktop.ProjectWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="QC project" Icon="app.ico" Width="680" Height="780" MinHeight="600" WindowStartupLocation="CenterOwner"
+        Background="{StaticResource AppBg}" Foreground="{StaticResource Ink}" FontFamily="{StaticResource UiFont}" FontSize="13" ShowInTaskbar="False">
+    <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+
+        <Border Background="White" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="28,20">
+            <DockPanel>
+                <Border DockPanel.Dock="Left" Width="46" Height="46" CornerRadius="13" Background="{StaticResource AccentSoft}" Margin="0,0,16,0">
+                    <TextBlock Text="&#xE838;" Style="{StaticResource Icon}" FontSize="22" Foreground="{StaticResource Accent}" HorizontalAlignment="Center"/>
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="QC project" Style="{StaticResource H2}" FontSize="19"/>
+                    <TextBlock Style="{StaticResource Muted}" Text="The client, the Navisworks model and the project inputs (PMS, line list, P&amp;IDs, vendor data) you check against. Sent with every request, so you do not have to repeat it." TextWrapping="Wrap"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="28,20,28,16">
+                <TextBlock Text="Name  (shown in the list) *" Style="{StaticResource Eyebrow}" Margin="0,0,0,4"/>
+                <TextBox x:Name="NameBox" Style="{StaticResource Field}" Margin="0,0,0,14"/>
+
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <StackPanel><TextBlock Text="Client" Style="{StaticResource Eyebrow}" Margin="0,0,0,4"/><TextBox x:Name="ClientBox" Style="{StaticResource Field}"/></StackPanel>
+                    <StackPanel Grid.Column="2"><TextBlock Text="Project number" Style="{StaticResource Eyebrow}" Margin="0,0,0,4"/><TextBox x:Name="ProjectNoBox" Style="{StaticResource Field}"/></StackPanel>
+                </Grid>
+
+                <TextBlock Text="Navisworks model  (the .nwd that isometrics and GA drawings are checked against)" Style="{StaticResource Eyebrow}" Margin="0,0,0,4"/>
+                <DockPanel Margin="0,0,0,14">
+                    <Button DockPanel.Dock="Right" Content="Browse" Style="{StaticResource SecondaryButton}" Padding="14,8" Margin="8,0,0,0" Click="BrowseModel_Click"/>
+                    <TextBox x:Name="ModelBox" Style="{StaticResource Field}"/>
+                </DockPanel>
+
+                <TextBlock Text="Project inputs folder  (PMS, line list, P&amp;IDs, vendor data; leave empty to use the project's folder on the shared drive)" Style="{StaticResource Eyebrow}" Margin="0,0,0,4"/>
+                <DockPanel Margin="0,0,0,6">
+                    <Button DockPanel.Dock="Right" Content="Browse" Style="{StaticResource SecondaryButton}" Padding="14,8" Margin="8,0,0,0" Click="BrowseInputs_Click"/>
+                    <TextBox x:Name="InputsBox" Style="{StaticResource Field}"/>
+                </DockPanel>
+                <TextBlock x:Name="InputsNote" Style="{StaticResource Muted}" FontSize="11" Margin="0,0,0,14" TextWrapping="Wrap"/>
+
+                <TextBlock Text="Requirement packs  (client rule files that apply, comma separated; they live in the shared requirements folder)" Style="{StaticResource Eyebrow}" Margin="0,0,0,4"/>
+                <TextBox x:Name="PacksBox" Style="{StaticResource Field}" Margin="0,0,0,14"/>
+
+                <TextBlock Text="Details  (scope, units, naming rules, contacts, anything the assistant should know)" Style="{StaticResource Eyebrow}" Margin="0,0,0,4"/>
+                <TextBox x:Name="DetailsBox" Style="{StaticResource Field}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="110" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Background="White" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="28,14">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancel" Style="{StaticResource SecondaryButton}" IsCancel="True" Margin="0,0,10,0"/>
+                <Button Content="Save" Style="{StaticResource PrimaryButton}" Padding="24,9" Click="Save_Click"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

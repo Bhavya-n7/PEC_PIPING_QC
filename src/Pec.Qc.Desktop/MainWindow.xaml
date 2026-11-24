@@ -1,0 +1,211 @@
+<Window x:Class="Pec.Qc.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PEC QC Assistant" Icon="app.ico" Width="1300" Height="840" MinWidth="1000" MinHeight="640"
+        Background="{StaticResource AppBg}" Foreground="{StaticResource Ink}" FontFamily="{StaticResource UiFont}" FontSize="13" WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="272"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- navigation rail: new chat, search, the pages, and the history of chats -->
+        <Border Background="{StaticResource Sidebar}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="14,18,14,6">
+                    <Image Source="logo.png" Height="46" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <TextBlock Text="QC Assistant" Foreground="{StaticResource SidebarInk}" FontSize="15" FontWeight="SemiBold" Margin="0,8,0,0" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Petrocon Engineers &amp; Consultants" Foreground="{StaticResource SidebarMuted}" FontSize="10.5" Margin="0,2,0,14" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
+                    <Button x:Name="NewChatButton" Style="{StaticResource GhostButton}" Click="NewChat_Click" HorizontalContentAlignment="Left" Padding="12,9" Background="{StaticResource SidebarActive}" ToolTip="Start a new chat">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Foreground="{StaticResource SidebarInk}" Margin="0,0,10,0"/><TextBlock Text="New chat" FontWeight="SemiBold" Foreground="{StaticResource SidebarInk}"/></StackPanel>
+                    </Button>
+                    <Grid Margin="0,8,0,0">
+                        <TextBox x:Name="ChatSearch" Style="{StaticResource Field}" Padding="34,7,10,7" FontSize="13" TextChanged="ChatSearch_Changed" ToolTip="Search the titles and the text of your chats"/>
+                        <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" Foreground="{StaticResource SidebarMuted}" FontSize="13" Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                        <TextBlock x:Name="ChatSearchHint" Text="Search chats" Foreground="{StaticResource SidebarMuted}" Margin="34,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                    </Grid>
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Bottom" Margin="12,0,12,10">
+                    <Border CornerRadius="10" Background="{StaticResource SidebarHover}" Padding="12,7" Margin="0,0,0,6">
+                        <StackPanel>
+                            <DockPanel Margin="0,2"><Ellipse x:Name="ClaudeDot" Width="8" Height="8" Fill="#7A86B0" DockPanel.Dock="Left" Margin="0,0,8,0"/><TextBlock x:Name="ClaudeText" Text="Claude" Foreground="{StaticResource SidebarInk}" FontSize="12" TextTrimming="CharacterEllipsis"/></DockPanel>
+                            <DockPanel Margin="0,2"><Ellipse x:Name="NavisDot" Width="8" Height="8" Fill="#7A86B0" DockPanel.Dock="Left" Margin="0,0,8,0"/><TextBlock x:Name="NavisText" Text="Navisworks" Foreground="{StaticResource SidebarInk}" FontSize="12" TextTrimming="CharacterEllipsis"/></DockPanel>
+                            <DockPanel Margin="0,2"><Ellipse x:Name="InputsDot" Width="8" Height="8" Fill="#7A86B0" DockPanel.Dock="Left" Margin="0,0,8,0"/><TextBlock x:Name="InputsText" Text="Project inputs" Foreground="{StaticResource SidebarInk}" FontSize="12" TextTrimming="CharacterEllipsis"/></DockPanel>
+                            <DockPanel Margin="0,2"><Ellipse x:Name="SharedDot" Width="8" Height="8" Fill="#7A86B0" DockPanel.Dock="Left" Margin="0,0,8,0"/><TextBlock x:Name="SharedText" Text="Shared folder" Foreground="{StaticResource SidebarInk}" FontSize="12" TextTrimming="CharacterEllipsis"/></DockPanel>
+                        </StackPanel>
+                    </Border>
+                    <Button x:Name="SignInButton" Content="Sign in with Claude" Style="{StaticResource PrimaryButton}" Click="SignIn_Click" Visibility="Collapsed" Margin="0,0,0,6"/>
+                    <DockPanel>
+                        <TextBlock x:Name="VersionText" DockPanel.Dock="Right" Text="v-" Foreground="{StaticResource SidebarMuted}" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource GhostButton}" Click="Settings_Click" Padding="9,6" ToolTip="Settings"><TextBlock Text="&#xE713;" Style="{StaticResource Icon}" FontSize="15" Foreground="{StaticResource SidebarInk}"/></Button>
+                            <Button Style="{StaticResource GhostButton}" Click="MasterPrompt_Click" Padding="9,6" ToolTip="Master prompt: the rules file that guides every request"><TextBlock Text="&#xE70F;" Style="{StaticResource Icon}" FontSize="15" Foreground="{StaticResource SidebarInk}"/></Button>
+                            <Button x:Name="SignOutButton" Style="{StaticResource GhostButton}" Click="SignOut_Click" Visibility="Collapsed" Padding="9,6" ToolTip="Sign out of Claude"><TextBlock Text="&#xE7E8;" Style="{StaticResource Icon}" FontSize="15" Foreground="{StaticResource SidebarMuted}"/></Button>
+                        </StackPanel>
+                    </DockPanel>
+                </StackPanel>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,4,0,0">
+                    <StackPanel Margin="0,0,0,10">
+                        <RadioButton x:Name="NavAssistant" Content="Assistant" Tag="&#xE8BD;" Style="{StaticResource NavButton}" GroupName="nav" IsChecked="True" Checked="Nav_Checked" Visibility="Collapsed"/>
+                        <RadioButton x:Name="NavProjects" Content="Projects" Tag="&#xE838;" Style="{StaticResource NavButton}" GroupName="nav" Checked="Nav_Checked"/>
+                        <RadioButton x:Name="NavTasks" Content="Quick tasks" Tag="&#xE945;" Style="{StaticResource NavButton}" GroupName="nav" Checked="Nav_Checked"/>
+                        <RadioButton x:Name="NavKnowledge" Content="Knowledge" Tag="&#xE8F1;" Style="{StaticResource NavButton}" GroupName="nav" Checked="Nav_Checked"/>
+                        <RadioButton x:Name="NavHelp" Content="Guide &amp; FAQ" Tag="&#xE897;" Style="{StaticResource NavButton}" GroupName="nav" Checked="Nav_Checked"/>
+                        <Border Height="1" Background="{StaticResource Line}" Margin="16,12,16,8"/>
+                        <TextBlock Text="CHATS" Style="{StaticResource Eyebrow}" Foreground="{StaticResource SidebarMuted}" Margin="24,2,0,6"/>
+                        <StackPanel x:Name="ChatList" Margin="8,0,8,0"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- content -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Border x:Name="UpdateBar" Visibility="Collapsed" Background="{StaticResource WarnSoft}" BorderBrush="#F0D9A5" BorderThickness="0,0,0,1" Padding="24,10">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Update now" Style="{StaticResource PrimaryButton}" Padding="14,6" Click="UpdateNow_Click"/>
+                    <Button DockPanel.Dock="Right" Content="What's new" Style="{StaticResource SecondaryButton}" Padding="14,6" Margin="0,0,8,0" Click="WhatsNew_Click"/>
+                    <TextBlock Text="&#xE895;" Style="{StaticResource Icon}" Foreground="{StaticResource Warn}" Margin="0,0,10,0"/>
+                    <TextBlock x:Name="UpdateText" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                </DockPanel>
+            </Border>
+
+            <Grid Grid.Row="1">
+                <!-- Assistant -->
+                <Grid x:Name="AssistantView">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Background="White" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="28,14">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Border Style="{StaticResource Pill}" VerticalAlignment="Center" ToolTip="Tokens of the last request and how much came from the cache"><TextBlock x:Name="TokenStatus" Text="Tokens: -" Foreground="{StaticResource Accent}" FontSize="12"/></Border>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE838;" Style="{StaticResource Icon}" Foreground="{StaticResource Accent}" FontSize="20" Margin="0,0,12,0"/>
+                                <StackPanel>
+                                    <TextBlock Text="ACTIVE PROJECT" Style="{StaticResource Eyebrow}"/>
+                                    <ComboBox x:Name="ProfileBox" MinWidth="280" BorderThickness="0" Background="Transparent" FontSize="15" FontWeight="SemiBold" Padding="0,2" SelectionChanged="Profile_Changed"/>
+                                </StackPanel>
+                                <TextBlock x:Name="ProfileLine" Style="{StaticResource Muted}" VerticalAlignment="Bottom" Margin="14,0,0,3" FontSize="12"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <Grid Grid.Row="1">
+                        <!-- welcome (empty chat) -->
+                        <ScrollViewer x:Name="WelcomeScroll" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="36,30,36,24" MaxWidth="1020" HorizontalAlignment="Stretch">
+                                <StackPanel x:Name="Notices" Margin="0,0,0,14"/>
+                                <TextBlock x:Name="GreetingText" Style="{StaticResource H1}" Text="Hello"/>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="15" Margin="0,4,0,20" Text="Which QC check would you like to run today?"/>
+                                <Border x:Name="WelcomeProject" Style="{StaticResource Card}" Margin="0,0,0,26">
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Content="Manage projects" Style="{StaticResource SecondaryButton}" Click="ManageProjects_Click" VerticalAlignment="Center"/>
+                                        <Border DockPanel.Dock="Left" Width="46" Height="46" CornerRadius="12" Background="{StaticResource AccentSoft}" Margin="0,0,16,0">
+                                            <TextBlock Text="&#xE838;" Style="{StaticResource Icon}" FontSize="22" Foreground="{StaticResource Accent}" HorizontalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="WORKING ON" Style="{StaticResource Eyebrow}"/>
+                                            <TextBlock x:Name="WelcomeProjectName" FontSize="17" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="WelcomeProjectLine" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                                <DockPanel Margin="0,0,0,10"><Button x:Name="AllTasksLink" DockPanel.Dock="Right" Content="All quick tasks  →" Style="{StaticResource GhostButton}" Foreground="{StaticResource Accent}" Padding="8,2" Visibility="Collapsed" Click="AllTasks_Click"/><TextBlock Text="START WITH A QUICK TASK" Style="{StaticResource Eyebrow}" VerticalAlignment="Center"/></DockPanel>
+                                <WrapPanel x:Name="WelcomeTasks"/>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- conversation -->
+                        <ScrollViewer x:Name="ChatScroll" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"/>
+                    </Grid>
+
+                    <!-- composer -->
+                    <Border x:Name="Composer" Grid.Row="2" Margin="28,0,28,16" Style="{StaticResource Card}" Padding="14,10" AllowDrop="True" DragOver="Composer_DragOver" Drop="Composer_Drop">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <WrapPanel x:Name="AttachBar" Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,6" Visibility="Collapsed"/>
+                            <TextBox x:Name="Prompt" Grid.Row="1" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="44" MaxHeight="150" VerticalScrollBarVisibility="Auto" BorderThickness="0" Background="Transparent" FontSize="14"
+                                     Padding="4,8" PreviewKeyDown="Prompt_PreviewKeyDown" VerticalContentAlignment="Center"/>
+                            <Grid Grid.Row="1" Grid.Column="1" VerticalAlignment="Bottom" Margin="10,0,0,2">
+                                <Button x:Name="SendButton" Style="{StaticResource SendButton}" Click="Send_Click" ToolTip="Send (Enter)"><TextBlock Text="&#xE724;" Style="{StaticResource Icon}" Foreground="White"/></Button>
+                                <Button x:Name="StopButton" Style="{StaticResource SendButton}" Background="{StaticResource Bad}" Click="Stop_Click" Visibility="Collapsed" ToolTip="Stop"><TextBlock Text="&#xE71A;" Style="{StaticResource Icon}" Foreground="White"/></Button>
+                            </Grid>
+                            <DockPanel Grid.Row="2" Grid.ColumnSpan="2" Margin="0,4,0,0" LastChildFill="True">
+                                <Button x:Name="AttachButton" DockPanel.Dock="Left" Style="{StaticResource GhostButton}" Padding="8,5" Margin="0,0,8,0" Click="Attach_Click" ToolTip="Attach files: PDF, Excel, Word, PowerPoint, images (JPG, PNG), CSV, text... You can also drag files here or paste an image (Ctrl+V)."><TextBlock Text="&#xE723;" Style="{StaticResource Icon}" FontSize="16"/></Button>
+                                <ComboBox x:Name="ModelBox" DockPanel.Dock="Left" Width="120" ToolTip="Claude model. Changing it starts a fresh prompt cache." SelectionChanged="Model_Changed"/>
+                                <ComboBox x:Name="EffortBox" DockPanel.Dock="Left" Width="96" Margin="6,0,10,0" ToolTip="Effort: low is fastest and cheapest, higher thinks longer. Medium is the default." SelectionChanged="Effort_Changed"/>
+                                <TextBlock VerticalAlignment="Center" Foreground="{StaticResource InkFaint}" FontSize="11" TextTrimming="CharacterEllipsis" Text="Enter sends · Shift+Enter adds a line · QC is read-only: anything saved to the shared folder asks for your approval first"/>
+                            </DockPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- Projects -->
+                <ScrollViewer x:Name="ProjectsView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="36,30,36,30">
+                        <DockPanel Margin="0,0,0,6">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Click="NewProfile_Click">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Foreground="White" Margin="0,0,8,0"/><TextBlock Text="Add project" Foreground="White"/></StackPanel>
+                            </Button>
+                            <TextBlock Text="Projects" Style="{StaticResource H1}"/>
+                        </DockPanel>
+                        <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,22" MaxWidth="760"
+                                   Text="Tell the assistant which QC project you work on: the client, the Navisworks model and the project inputs (PMS, line list, P&amp;IDs, vendor data). It is sent with every request, so you never have to repeat it."/>
+                        <WrapPanel x:Name="ProjectsPanel"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Quick tasks -->
+                <ScrollViewer x:Name="TasksView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="36,30,36,30">
+                        <DockPanel Margin="0,0,0,6">
+                            <Button DockPanel.Dock="Right" Content="Edit the task list" Style="{StaticResource SecondaryButton}" Click="EditTasks_Click"/>
+                            <TextBlock Text="Quick tasks" Style="{StaticResource H1}"/>
+                        </DockPanel>
+                        <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,22" MaxWidth="760"
+                                   Text="One click sends a ready-made request. The assistant asks only for what is missing, such as a drawing or a folder. Tasks are kept in a shared file, so your team can add its own."/>
+                        <StackPanel x:Name="TasksPanel"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Knowledge -->
+                <ScrollViewer x:Name="KnowledgeView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="36,30,36,30">
+                        <DockPanel Margin="0,0,0,6">
+                            <Button DockPanel.Dock="Right" Content="Refresh" Style="{StaticResource SecondaryButton}" Click="RefreshKnowledge_Click"/>
+                            <TextBlock Text="Knowledge &amp; sharing" Style="{StaticResource H1}"/>
+                        </DockPanel>
+                        <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,22" MaxWidth="760"
+                                   Text="What the assistant knows and shares with your team: skills, lessons, client rules, custom tools and documents. With a shared folder, everyone uses the same knowledge."/>
+                        <WrapPanel x:Name="KnowledgePanel"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Guide -->
+                <Grid x:Name="HelpView" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border Background="White" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+                        <DockPanel Margin="14,24,14,14">
+                            <TextBlock DockPanel.Dock="Top" Text="CONTENTS" Style="{StaticResource Eyebrow}" Margin="10,0,0,8"/>
+                            <ListBox x:Name="HelpToc" BorderThickness="0" Background="Transparent" SelectionChanged="HelpToc_Changed"/>
+                        </DockPanel>
+                    </Border>
+                    <FlowDocumentScrollViewer x:Name="HelpViewer" Grid.Column="1" VerticalScrollBarVisibility="Auto" IsToolBarVisible="False" Background="White"/>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
