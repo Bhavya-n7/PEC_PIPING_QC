@@ -129,6 +129,7 @@ public static class CustomToolTools
         [Description("The guide in Markdown")] string body,
         bool apply = false)
     {
+        if (Resolve.Require(Pec.Qc.Core.Users.QcRole.Lead, "Saving a shared skill") is { } denied) return denied;
         if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-z][a-z0-9\-]{2,40}$")) throw new McpException("Skill name: lowercase letters, digits and -, 3 to 41 characters.");
         if (string.IsNullOrWhiteSpace(description) || string.IsNullOrWhiteSpace(body)) throw new McpException("A description and a body are needed.");
         var file = Path.Combine(Resolve.Settings().EffectiveSkillsDirectory, name, "SKILL.md");

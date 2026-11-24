@@ -3,6 +3,7 @@ using ModelContextProtocol.Server;
 using Pec.Qc.Core;
 using Pec.Qc.Core.Knowledge;
 using Pec.Qc.Core.Setup;
+using Pec.Qc.Core.Users;
 
 namespace Pec.Qc.Mcp.Tools;
 
@@ -15,6 +16,7 @@ public static class EnvironmentTools
     {
         var s = Resolve.Settings();
         var who = Resolve.Who();
+        var me = UserRegistry.Touch(s, who);
         var project = Resolve.ActiveProject();
         var nav = Resolve.Navisworks();
 
@@ -36,7 +38,7 @@ public static class EnvironmentTools
         return new
         {
             version = Updates.CurrentVersion,
-            user = new { who.Name, who.EmployeeCode, who.Company, complete = who.IsComplete },
+            user = new { who.Name, who.EmployeeCode, who.Company, role = me.Role, complete = who.IsComplete },
             sharedFolder = shared,
             activeProject = project is null ? null : new { project.Name, project.Client, project.ProjectNo, project.ModelFile, project.InputsFolder, project.RulePacks },
             navisworks = nav is null ? null : new { nav.Name, nav.Root },

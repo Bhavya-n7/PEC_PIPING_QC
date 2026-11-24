@@ -117,14 +117,17 @@ Rules: seed missing files only, never overwrite shared files (people edit them);
 - Not in this phase (moved): the Smart 3D-specific `error_explain` and the C# tool store (Phase 9), `graphify` (dropped), installer tests and the in-app guide / WPF thread-guard tests (added with the projects they guard: Phase 3 and 4)
 - Exit met: `dotnet build` 0 errors, `dotnet test` 118 passed, `qc_status` answers through Claude Code
 
-### Phase 2: Shared office folder, identity and central users
-- [ ] QC folder layout created on the real share (README, `hub.json`, all folders) by `SharedHub.Ensure`
-- [ ] `office-defaults.json` from private `config.local.json` (share + updates), applied to empty settings only
-- [ ] `UserIdentity` + **central registry** `users\<code>.json` (role, first/last seen, version, machine), roles enforced in tools
-- [ ] Activity and audit logs verified on the real share (several users, offline fallback and later sync)
-- [ ] Seed content: shared `README.md`, `master-prompt.md`, platform skills, `quick-tasks.json`
-- [ ] `scripts\publish-to-shared.ps1` (report first, `-Apply` copies, backs up changed files)
-- Exit: two PCs/identities see each other's lessons and appear in the user registry
+### Phase 2: Shared office folder, identity and central users - code done, real-share checks open
+- [ ] QC folder layout created on the real share (README, `hub.json`, all folders) by `SharedHub.Ensure` (code and test done on a temp folder; **not yet run on the company share**: it writes there, waiting for the owner's go-ahead)
+- [x] `office-defaults.json` written from the private `config.local.json` by `scripts\make-office-defaults.ps1` (git-ignored output); `Settings.Load` applies it to empty settings only (code from Phase 1)
+- [x] `UserIdentity` + **central registry** `users\<code>.json` (`Pec.Qc.Core.Users`): role, first/last seen, version, machine, sessions; refreshed by `qc_status` and `who_am_i`; falls back to a local record when the share is away
+- [x] Roles `qc-engineer` < `qc-lead` < `admin` **enforced by the tools** (`Resolve.Require`): `save_skill` needs lead; `kit_pending`, `kit_approve`, `set_user_role` need admin; `users_list` needs lead. New tools: `users_list`, `set_user_role` (36 tools in all). An admin cannot demote themselves
+- [ ] Activity and audit logs verified on the real share (several users, offline fallback and later sync): code exists from Phase 1, the real-share run is open
+- [x] Seed content: `prompts\master-prompt.md`, `prompts\quick-tasks.json` (kept equal to the built-in defaults by a test), platform skills `qc-platform` and `qc-learning`; seeding never overwrites
+- [x] `scripts\publish-to-shared.ps1` (report first, `-Apply` copies, backs up changed files as `.bak_<date-time>`, never deletes; folder from `config.local.json`)
+- Assumptions to confirm (D3/D4): the first person to register when the registry has no admin becomes admin; roles live in a plain file, so the tools enforce them but the **share's folder permissions** are the real protection (give `users\` modify rights to admins only)
+- Verified: `dotnet build` 0 errors, `dotnet test` 130 passed, MCP server run over stdio with two identities (first user admin, engineer refused `users_list`/`kit_pending`/`set_user_role`, lead allowed `users_list` but not `kit_pending`, admin promoted a user, self-demotion refused)
+- Exit (open): two PCs/identities see each other's lessons and appear in the user registry **on the real share**
 
 ### Phase 3: Desktop app (WPF)
 - [ ] Shell copied from the reference and adapted: theme, chat with markdown, tool steps, attachments, chat history, token display

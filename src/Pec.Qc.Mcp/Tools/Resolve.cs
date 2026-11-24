@@ -1,6 +1,7 @@
 using Pec.Qc.Core;
 using Pec.Qc.Core.Claude;
 using Pec.Qc.Core.Install;
+using Pec.Qc.Core.Users;
 using Pec.Qc.Core.Util;
 
 namespace Pec.Qc.Mcp.Tools;
@@ -19,6 +20,19 @@ internal static class Resolve
             : new { applied = false, ran = false, waitingForApproval = true, message = Core.Approvals.ApprovalGate.WaitMessage, summary };
 
     public static UserIdentity Who() => UserIdentity.Current(Settings());
+
+    public static QcRole Role() => UserRegistry.RoleOf(Settings(), Who());
+
+    /// <summary>Null when this user's role is at least <paramref name="minimum"/>; else the refusal to return from the tool (roles are enforced by the tools, not only by the app).</summary>
+    public static object? Require(QcRole minimum, string action)
+    {
+        var have = Role();
+        return have >= minimum ? null : new
+        {
+            applied = false, ran = false, denied = true, yourRole = QcRoles.Name(have), neededRole = QcRoles.Name(minimum),
+            message = $"{action} needs the role '{QcRoles.Name(minimum)}'; you are '{QcRoles.Name(have)}'. Ask an administrator (set_user_role) if this should be allowed.",
+        };
+    }
 
     public static ProjectCard? ActiveProject() => new ProjectStore().Active;
 

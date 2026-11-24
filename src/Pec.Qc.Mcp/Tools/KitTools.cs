@@ -3,6 +3,7 @@ using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using Pec.Qc.Core.Install;
 using Pec.Qc.Core.Knowledge;
+using Pec.Qc.Core.Users;
 
 namespace Pec.Qc.Mcp.Tools;
 
@@ -51,12 +52,14 @@ public static class KitTools
 
     [McpServerTool(Name = "kit_pending", ReadOnly = true)]
     [Description("ADMINISTRATOR: the skills, commands and agents users have shared that wait for review, with where to read them.")]
-    public static object Pending() => Kit().Pending().Select(c => new { c.Contributor, kind = c.Kind.ToString().ToLowerInvariant(), c.Name, c.Path });
+    public static object Pending() => Resolve.Require(QcRole.Admin, "Listing the items that wait for review")
+        ?? Kit().Pending().Select(c => new { c.Contributor, kind = c.Kind.ToString().ToLowerInvariant(), c.Name, c.Path });
 
     [McpServerTool(Name = "kit_approve")]
     [Description("ADMINISTRATOR: approve (or reject) one shared item so everyone gets it on their next pull. Read the item first (kit_pending gives its path): skills, commands and agents steer Claude and can run tools, so approve only what you have reviewed. The item it replaces is kept as .bak.")]
     public static object Approve(string contributor, string kind, string name, bool reject = false, bool apply = false)
     {
+        if (Resolve.Require(QcRole.Admin, "Approving or rejecting a shared item") is { } denied) return denied;
         var k = Kit(); var kd = Kind(kind);
         if (!apply) return new { applied = false, action = reject ? "reject" : "approve", contributor, kind, name, next = "Read the item, then call again with apply=true." };
         if (Resolve.NeedApproval("kit_approve", $"{contributor}|{kind}|{name}|{reject}", (reject ? "Reject " : "Approve ") + $"{kind} '{name}' from {contributor}",

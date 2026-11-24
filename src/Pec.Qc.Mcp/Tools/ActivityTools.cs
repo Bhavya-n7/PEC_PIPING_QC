@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using ModelContextProtocol.Server;
 using Pec.Qc.Core;
+using Pec.Qc.Core.Users;
 using Pec.Qc.Core.Util;
 
 namespace Pec.Qc.Mcp.Tools;
@@ -12,8 +13,10 @@ public static class ActivityTools
     [Description("The name, employee code and company of the person using the assistant on this PC (asked once at first start). Everything is logged against it.")]
     public static object WhoAmI()
     {
-        var w = UserIdentity.Current(Resolve.Settings());
-        return new { w.Name, w.EmployeeCode, w.Company, complete = w.IsComplete, windowsUser = Environment.UserName, machine = Environment.MachineName };
+        var s = Resolve.Settings();
+        var w = UserIdentity.Current(s);
+        var rec = UserRegistry.Touch(s, w);
+        return new { w.Name, w.EmployeeCode, w.Company, complete = w.IsComplete, role = rec.Role, windowsUser = Environment.UserName, machine = Environment.MachineName };
     }
 
     [McpServerTool(Name = "activity_report", ReadOnly = true)]

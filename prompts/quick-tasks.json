@@ -1,0 +1,56 @@
+[
+  {
+    "Id": "where",
+    "Category": "Project",
+    "Title": "Which project are we on?",
+    "Prompt": "Tell me the state: the active project, its client, the Navisworks model and the project inputs folder, and what is ready and what blocks a QC check."
+  },
+  {
+    "Id": "iso",
+    "Category": "Isometric QC",
+    "Title": "Check an isometric against the model",
+    "Prompt": "Check the isometric {{?Path of the isometric PDF}} for {{project}} against the Navisworks model, the PMS, the P&ID, the line list and vendor data. Give the verdict first, then a table of FAIL and REVIEW findings with the drawing value, the source value and the source, then what you could not check."
+  },
+  {
+    "Id": "iso-batch",
+    "Category": "Isometric QC",
+    "Title": "Check a folder of isometrics",
+    "Prompt": "Check every isometric PDF in {{?Folder with the isometric PDFs}} for {{project}}. Give one row per line with its verdict, then the findings that need attention, and write the report."
+  },
+  {
+    "Id": "pid",
+    "Category": "P&ID QC",
+    "Title": "Check a redrawn P&ID against the original",
+    "Prompt": "Compare the redrawn P&ID {{?Path of the redrawn P&ID PDF}} with the client's original {{?Path of the original P&ID PDF}} for {{project}}. List every line, equipment, instrument, tag and note that is missing, extra or different, with the sheet and position."
+  },
+  {
+    "Id": "ga",
+    "Category": "GA QC",
+    "Title": "Check a GA drawing",
+    "Prompt": "Check the GA drawing {{?Path of the GA drawing PDF}} for {{project}} against the Navisworks model, the P&IDs and the vendor data. Give the verdict first, then the FAIL and REVIEW findings with their sources."
+  },
+  {
+    "Id": "inputs",
+    "Category": "Project inputs",
+    "Title": "What project inputs do we have?",
+    "Prompt": "List the project inputs for {{project}} (PMS, line list, P&IDs, vendor data) and say which QC checks each one supports and what is missing."
+  },
+  {
+    "Id": "rule",
+    "Category": "Knowledge",
+    "Title": "What does the PMS / client rule say?",
+    "Prompt": "What does {{?Your question about a spec, class or client rule}} say for {{project}}? Answer from the project inputs and saved rules and give the document and page."
+  },
+  {
+    "Id": "recall",
+    "Category": "Knowledge",
+    "Title": "What do we know about this client?",
+    "Prompt": "What do we know about {{client}}? Use recall and list each rule with its source."
+  },
+  {
+    "Id": "learn",
+    "Category": "Knowledge",
+    "Title": "Save what we learned",
+    "Prompt": "Record what we learned in this chat: corrections, preferences, gotchas and rules that worked. Use learn_record and show me each entry before saving."
+  }
+]
