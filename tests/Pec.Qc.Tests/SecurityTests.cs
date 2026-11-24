@@ -17,7 +17,7 @@ public class SecurityTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var v in new[] { "PEC_QC_DATA", "PEC_QC_APPROVAL", UserIdentity.NameVar, UserIdentity.CodeVar, UserIdentity.CompanyVar }) Environment.SetEnvironmentVariable(v, null);
+        foreach (var v in new[] { "PEC_QC_DATA", "PEC_QC_APPROVAL", "PEC_QC_APPROVAL_WAIT", UserIdentity.NameVar, UserIdentity.CodeVar, UserIdentity.CompanyVar }) Environment.SetEnvironmentVariable(v, null);
         try { Directory.Delete(_root, true); } catch { }
     }
 
@@ -26,6 +26,7 @@ public class SecurityTests : IDisposable
         var data = Path.Combine(_root, "pc-" + name); Directory.CreateDirectory(data);
         Environment.SetEnvironmentVariable("PEC_QC_DATA", data);
         Environment.SetEnvironmentVariable("PEC_QC_APPROVAL", approval);
+        Environment.SetEnvironmentVariable("PEC_QC_APPROVAL_WAIT", "0");
         Environment.SetEnvironmentVariable(UserIdentity.NameVar, who.Name); Environment.SetEnvironmentVariable(UserIdentity.CodeVar, who.EmployeeCode); Environment.SetEnvironmentVariable(UserIdentity.CompanyVar, who.Company);
         var d = new Dictionary<string, object?> { ["UserName"] = who.Name, ["EmployeeCode"] = who.EmployeeCode, ["Company"] = who.Company, ["SharedRoot"] = shared };
         if (extraJson is not null) foreach (var kv in JsonSerializer.Deserialize<Dictionary<string, object?>>(extraJson)!) d[kv.Key] = kv.Value;

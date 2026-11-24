@@ -15,10 +15,16 @@ internal static class Resolve
     private static readonly Core.Approvals.ApprovalGate Gate = new();
 
     /// <summary>For an apply=true action: null when the user has approved it (or approvals are off), else the "waiting" result to return.</summary>
-    public static object? NeedApproval(string tool, string canonicalArguments, string summary, string detail, bool destructive = false) =>
-        Gate.Check(tool, canonicalArguments, summary, detail, destructive) == Core.Approvals.ApprovalState.Allowed
-            ? null
-            : new { applied = false, ran = false, waitingForApproval = true, message = Core.Approvals.ApprovalGate.WaitMessage, summary };
+    public static object? NeedApproval(string tool, string canonicalArguments, string summary, string detail, bool destructive = false)
+    {
+        var state = Gate.Check(tool, canonicalArguments, summary, detail, destructive, Core.Approvals.ApprovalGate.DefaultWait);
+        return state switch
+        {
+            Core.Approvals.ApprovalState.Allowed => null,
+            Core.Approvals.ApprovalState.Denied => new { applied = false, ran = false, denied = true, message = Core.Approvals.ApprovalGate.DeniedMessage, summary },
+            _ => new { applied = false, ran = false, waitingForApproval = true, message = Core.Approvals.ApprovalGate.WaitMessage, summary },
+        };
+    }
 
     public static UserIdentity Who() => UserIdentity.Current(Settings());
 

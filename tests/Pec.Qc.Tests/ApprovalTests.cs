@@ -104,3 +104,49 @@ public class ApprovalGateTests
         Assert.Equal(ApprovalState.Pending, g.Check("model_build_spec", "a", "Build", "d"));
     }
 }
+
+/// <summary>The tool waits for the user's click, so Claude does not have to call again and again while the window is coming up.</summary>
+public class ApprovalWaitTests
+{
+    private static ApprovalGate Gate(TempDir t, ApprovalMode mode) => new(System.IO.Path.Combine(t.Path, "approvals"), () => mode);
+
+    [Fact]
+    public void A_click_on_Approve_while_the_tool_waits_lets_that_same_call_go_through()
+    {
+        using var t = new TempDir(); var g = Gate(t, ApprovalMode.Strict);
+        var user = Task.Run(() => { for (var i = 0; i < 50; i++) { Thread.Sleep(100); if (g.Pending().FirstOrDefault() is { } r) { g.Approve(r.Id); return; } } });
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Assert.Equal(ApprovalState.Allowed, g.Check("model_export", "x", "Export", "d", wait: TimeSpan.FromSeconds(10)));
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5), "it answered when the user clicked, not when the wait ran out");
+        user.Wait();
+        Assert.Empty(g.Pending());
+    }
+
+    [Fact]
+    public void A_click_on_Deny_while_the_tool_waits_is_a_denial_not_a_timeout()
+    {
+        using var t = new TempDir(); var g = Gate(t, ApprovalMode.Strict);
+        var user = Task.Run(() => { for (var i = 0; i < 50; i++) { Thread.Sleep(100); if (g.Pending().FirstOrDefault() is { } r) { g.Deny(r.Id); return; } } });
+        Assert.Equal(ApprovalState.Denied, g.Check("model_export", "x", "Export", "d", wait: TimeSpan.FromSeconds(10)));
+        user.Wait();
+    }
+
+    [Fact]
+    public void When_nobody_answers_the_call_ends_as_pending_after_the_wait_and_the_request_stays_for_the_app()
+    {
+        using var t = new TempDir(); var g = Gate(t, ApprovalMode.Strict);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Assert.Equal(ApprovalState.Pending, g.Check("model_export", "x", "Export", "d", wait: TimeSpan.FromMilliseconds(900)));
+        Assert.True(sw.Elapsed >= TimeSpan.FromMilliseconds(800));
+        Assert.Single(g.Pending());
+    }
+
+    [Fact]
+    public void The_default_is_not_to_wait_so_existing_callers_behave_as_before()
+    {
+        using var t = new TempDir(); var g = Gate(t, ApprovalMode.Strict);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Assert.Equal(ApprovalState.Pending, g.Check("model_export", "x", "Export", "d"));
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(1));
+    }
+}

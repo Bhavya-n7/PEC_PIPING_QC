@@ -71,6 +71,9 @@ public partial class MainWindow : Window
         GreetingText.Text = Greeting();
         InitChats();
 
+        // approval requests are shown from the start: not only after Claude Code has been found and its sign-in checked (that can take a long time)
+        _approvalTimer.Start();
+
         _mcpExe = AssistantSetup.FindMcpExe(AppContext.BaseDirectory);
         if (_mcpExe is null) Say(Role.System, "The QC tools (mcp\\Pec.Qc.Mcp.exe) were not found next to the app. Run Setup again to repair the installation.");
         else WriteMcpConfigFile();
@@ -85,7 +88,6 @@ public partial class MainWindow : Window
         }
         _claude = new ClaudeCli(path);
         await RefreshAuthAsync();
-        _approvalTimer.Start();
         if (firstAdmin && _settings.HasShared) Say(Role.System, "You are the first person to register on this shared folder, so you are its administrator: you can approve shared items and change other people's roles. Everyone who comes after you starts as a QC engineer.");
         if (_signedIn && _profiles.Active is null)
             Say(Role.System, "Start by adding your project: open Projects and press Add project. Then pick a quick task or type a request.");
