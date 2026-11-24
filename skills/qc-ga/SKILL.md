@@ -28,3 +28,11 @@ Checklist: `qc_checklist` (type ga), 7 items. Findings and the report: `qc-findi
 - The reader is tuned on drawings I generated plus the real model, not on a real client GA template. If a result looks odd (no tags, coordinates not attached to a tag), look at `ga_read` and say what was read: do not report a tool artefact as a drafting error.
 - Always write the unit next to a number. The model is in mm; a coordinate written as a plain number is taken as mm and the result says so.
 - Tag typos and look-alike characters (0/O, 1/I) between the GA and the P&ID are worth a finding with the exact characters.
+
+## A piping plan (the client's GA sheets)
+A GA may be a piping plan per tier: line numbers such as `GH5174-2111-AOC-4"-11731009-NI` with `EL 102.615 m` beside each, matchlines, `CONT. ON DRAWING 1-GH5171-28-GAS-4300-00`, `TIER ELEVATION` and `PLAN FROM .. TO ..`. `ga_read` returns them (`lineNumbers` with size in inches and elevation in mm, `references`, `matchlines`, `tierElevation`, `planRanges`). `ga_check` then compares the **line numbers**:
+- against the model's pipes (size in the line number against the bore: a FAIL when it differs). If NONE is in the model it says so once: ask whether it is the right model, do not list them one by one;
+- against the **line list** (size in inches; not found is a REVIEW) and the **P&ID text** (not found is a REVIEW);
+- the drawings it continues on that are not in the project inputs are listed as not followed.
+It does **not** judge a line number that appears with different sizes (branches normally have another size) or an elevation outside the sheet's plan range (vertical pipes): do not report those as errors.
+A title block drawn as lines has no text: scale is read, revision and north arrow are then REVIEW ("look at the drawing"), once for the whole drawing.

@@ -30,6 +30,8 @@ public static class GaTools
             {
                 page = s.Page, readable = s.HasText, s.Warnings, s.Scale, s.Revision, northArrow = s.HasNorthArrow, notes = s.Notes,
                 tags = s.Tags.Select(t => t.Text).Distinct().ToList(),
+                lineNumbers = s.Lines.Select(l => new { text = l.Text, sizeIn = l.SizeIn, elevationMm = l.ElevationMm }).ToList(),
+                references = s.References, matchlines = s.Matchlines, tierElevation = s.TierElevation, planRanges = s.PlanRanges,
                 coordinates = s.Coords.Select(c => new { e_mm = Math.Round(c.E, 1), n_mm = Math.Round(c.N, 1), u_mm = Math.Round(c.U, 1), unit = c.Imperial ? "feet-inches" : "mm assumed", raw = c.Raw }).ToList(),
                 elevations = s.Elevations.Select(e => new { mm = Math.Round(e.Mm, 1), unit = e.Imperial ? "feet-inches" : "mm assumed", raw = e.Raw }).ToList(),
             }).ToList(),
@@ -52,7 +54,7 @@ public static class GaTools
             var inv = lib.Inventory();
             InputsIndex? index = null;
             if (inv.Any(d => d.Kind is InputKind.Pid or InputKind.Vendor)) { index = new InputsIndex(lib); index.Refresh(); }
-            ev = new IsoEvidence(null, index, inv);
+            ev = new IsoEvidence(LineListSet.Load(lib), index, inv);
         }
         catch (McpException) { ev = new IsoEvidence(); }
         List<GaSheet> sheets;

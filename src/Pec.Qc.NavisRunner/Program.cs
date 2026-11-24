@@ -35,7 +35,7 @@ namespace PecQc.Runner
             try
             {
                 Directory.CreateDirectory(tmp);
-                string copy = Path.Combine(tmp, "model.nwd");
+                string copy = Path.Combine(tmp, "model" + Path.GetExtension(model).ToLowerInvariant());
                 Console.WriteLine("PROGRESS copying the model");
                 File.Copy(model, copy);
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath)));

@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.1.0 - first release candidate (Phases 0-4)
+- GA check for piping plans (tested on the real client sample): line numbers with sizes and elevations, drawing references, matchlines and tier read; line numbers checked against the model, line list and P&ID text; the Navisworks runner now opens .nwc and .nwf files.
 - Phase 8: GA drawing check. The model export now includes equipment with its bounding box; GA reader (tags, coordinates, elevations, scale, revision, north arrow); tags and coordinates checked against the model, tags against P&IDs and vendor data; tools ga_read and ga_check. Dimensions, nozzles and clearances are listed as not verified.
 - Phase 7: P&ID check. Redrawn P&ID against the client's original on their text (line numbers, tags, labels, notes, horizontal and rotated), missing / changed / extra / moved items with sheet and zone; tools pid_read and pid_compare; the graphics are always reported as not verified.
 - Phase 6: piping isometric check. Navisworks model export (hidden, on a copy) to a shared snapshot, isometric PDF reader, checks of identity, title block, BOM, coordinates and pipe lengths against the model and of the line list, PMS class and P&ID against the project inputs; tools model_export, model_summary, model_line, iso_read, iso_check, iso_check_folder; support map and tolerances in iso-rules.json.

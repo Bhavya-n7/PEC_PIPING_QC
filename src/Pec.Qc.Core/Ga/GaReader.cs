@@ -10,7 +10,10 @@ public sealed record GaTag(string Text, string Key, double X, double Y);
 /// <summary>A coordinate printed on the drawing, in mm. Imperial = it was written in feet and inches; otherwise the value was a plain number, taken as mm (AssumedMm).</summary>
 public sealed record GaCoord(double E, double N, double U, double X, double Y, bool Imperial, string Raw);
 
-public sealed record GaElevation(double Mm, double X, double Y, bool Imperial, string Raw);
+/// <summary>A line number on a piping plan, with the elevation printed beside it (mm; null when none was found) and the size read from the line number (inches).</summary>
+public sealed record GaLine(string Text, string Key, double? SizeIn, double? ElevationMm, double X, double Y, bool Vertical, double X1 = 0, double Y1 = 0);
+
+public sealed record GaElevation(double Mm, double X, double Y, bool Imperial, string Raw, double X1 = 0, double Y1 = 0);
 
 /// <summary>What was read from one sheet of a general arrangement PDF.</summary>
 public sealed class GaSheet
@@ -22,6 +25,13 @@ public sealed class GaSheet
     public List<GaTag> Loose { get; } = [];
     public List<GaCoord> Coords { get; } = [];
     public List<GaElevation> Elevations { get; } = [];
+    /// <summary>Line numbers as printed on a piping plan, e.g. GH5174-2111-AOC-4"-11731009-NI (horizontal and rotated text).</summary>
+    public List<GaLine> Lines { get; } = [];
+    /// <summary>Drawing numbers this sheet refers to (CONT. ON DRAWING 1-GH5171-28-GAS-4300-00).</summary>
+    public List<string> References { get; } = [];
+    public List<string> Matchlines { get; } = [];
+    public string TierElevation { get; set; } = "";
+    public List<string> PlanRanges { get; } = [];
     public string Scale { get; set; } = "";
     public string Revision { get; set; } = "";
     public bool HasNorthArrow { get; set; }
@@ -43,6 +53,13 @@ public static partial class GaReader
 
     [GeneratedRegex(@"(?<![A-Za-z0-9\-])[A-Z0-9][A-Z0-9\-]{4,}(?![A-Za-z0-9\-])")]
     private static partial Regex LooseRx();
+
+    // GH5174-2111-AOC-4"-11731009-NI    GH5162-032-SCL-0.75"-111321S3-PP(MG)
+    private static readonly Regex LineNoRegex = new(@"[A-Z0-9]{3,8}-[A-Z0-9]{1,6}-[A-Z]{1,4}-\d+(?:\.\d+)?\s?""-[A-Z0-9]{4,10}(?:-[A-Z0-9]{1,4})?(?:\([A-Z]{1,4}\))?", RegexOptions.Compiled);
+    private static Regex LineNoRx() => LineNoRegex;
+
+    private static readonly Regex DrawingRefRegex = new(@"\d-[A-Z]{2}\d{4}-\d{2}-[A-Z]{2,4}-\d{4}-\d{2}", RegexOptions.Compiled);
+    private static Regex DrawingRefRx() => DrawingRefRegex;
 
     [GeneratedRegex(@"^([ENU])\s*[:=]?\s*(.+)$")]
     private static partial Regex AxisRx();
@@ -80,6 +97,13 @@ public static partial class GaReader
         return m.Groups[2].Value.Equals("m", StringComparison.OrdinalIgnoreCase) ? n * 1000 : n;
     }
 
+    // the distance between the two text boxes (0 when they touch or overlap), added over both directions
+    private static double Gap(GaLine a, GaElevation b)
+    {
+        double G(double a0, double a1, double b0, double b1) => Math.Max(0, Math.Max(a0, b0) - Math.Min(a1, b1));
+        return G(a.X, a.X1, b.X, b.X1) + G(a.Y, a.Y1, b.Y, b.Y1);
+    }
+
     public static GaSheet ReadLines(List<PidReader.RawLine> lines, string file, int pageNo)
     {
         var sh = new GaSheet { File = Path.GetFileName(file), Page = pageNo, HasText = lines.Count > 0 };
@@ -104,6 +128,24 @@ public static partial class GaReader
             sh.Coords.Add(new GaCoord(ev.Value, nv.Value, uv.Value, e.X0, e.Y0, i1 || i2 || i3, $"{e.T} {n.T} {u.T}"));
             usedAsCoord.Add(e); usedAsCoord.Add(n); usedAsCoord.Add(u);
         }
+        foreach (var l in lines)
+        {
+            foreach (Match m in LineNoRx().Matches(l.T))
+            {
+                var sm = Regex.Match(m.Value, @"-(\d+(?:\.\d+)?)\s?""-");
+                sh.Lines.Add(new GaLine(m.Value, Regex.Replace(m.Value.ToUpperInvariant(), @"\s+", ""), sm.Success ? double.Parse(sm.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) : null, null, l.X0, l.Y0, l.Vertical, l.X1, l.Y1));
+            }
+            foreach (Match m in DrawingRefRx().Matches(l.T)) if (!sh.References.Contains(m.Value)) sh.References.Add(m.Value);
+            if (l.T.StartsWith("MATCHLINE", StringComparison.OrdinalIgnoreCase)) sh.Matchlines.Add(Regex.Replace(l.T, @"\s+", " "));
+            if (l.T.StartsWith("TIER ELEVATION", StringComparison.OrdinalIgnoreCase)) sh.TierElevation = Regex.Replace(l.T, @"\s+", " ");
+            if (l.T.StartsWith("PLAN FROM", StringComparison.OrdinalIgnoreCase)) sh.PlanRanges.Add(Regex.Replace(l.T, @"\s+", " "));
+            if (!l.Vertical) continue;
+            foreach (Match m in ElevRx().Matches(l.T))
+            {
+                var v = Number(m.Groups[1].Value.Replace(" ", "") + m.Groups[2].Value, out var imp);
+                if (v is { } mm) sh.Elevations.Add(new GaElevation(mm, l.X0, l.Y0, imp, m.Value.Trim(), l.X1, l.Y1));
+            }
+        }
         foreach (var l in horizontal)
         {
             if (usedAsCoord.Contains(l)) continue;
@@ -111,7 +153,7 @@ public static partial class GaReader
             {
                 var raw = m.Groups[1].Value.Replace(" ", "");
                 var v = Number(raw + m.Groups[2].Value, out var imp);
-                if (v is { } mm) sh.Elevations.Add(new GaElevation(mm, l.X0, l.Y0, imp, m.Value.Trim()));
+                if (v is { } mm) sh.Elevations.Add(new GaElevation(mm, l.X0, l.Y0, imp, m.Value.Trim(), l.X1, l.Y1));
             }
             if (Regex.IsMatch(l.T, @"^(E|N|U|EL)\b")) continue;   // coordinate and elevation text is not a tag
             var tagMatches = TagRx().Matches(l.T);
@@ -123,6 +165,13 @@ public static partial class GaReader
             if (sh.Revision.Length == 0 && RevRx().Match(l.T) is { Success: true } rm) sh.Revision = rm.Groups[1].Value.ToUpperInvariant();
             if (Regex.IsMatch(l.T, @"NORTH", RegexOptions.IgnoreCase) || l.T == "N") sh.HasNorthArrow = true;
             if (Regex.Matches(l.T, "[A-Za-z]{2,}").Count >= 4) sh.Notes++;
+        }
+        // the elevation printed beside a line number: the nearest "EL ... m" within 30 points (below it on a horizontal line, beside it on a rotated one)
+        for (var i = 0; i < sh.Lines.Count; i++)
+        {
+            var ln = sh.Lines[i];
+            var best = sh.Elevations.Select(e => (E: e, D: Gap(ln, e))).Where(x => x.D < 30).OrderBy(x => x.D).Select(x => x.E).FirstOrDefault();
+            if (best is not null) sh.Lines[i] = ln with { ElevationMm = best.Mm };
         }
         return sh;
     }

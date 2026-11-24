@@ -32,10 +32,11 @@ public sealed class GaChecker(ModelSnapshot snap, string modelName, GaOptions? o
         {
             if (!s.HasText) { f.Add(new Finding("drawing", FindingStatus.Review, $"sheet {s.Page}", "the sheet has no text (a scan or an image): it cannot be checked")); continue; }
             foreach (var w in s.Warnings) f.Add(new Finding("parse", FindingStatus.Review, $"sheet {s.Page}", w));
-            Completeness(s, f);
             Tags(s, f);
             Positions(s, f);
         }
+        Completeness(sheets.Where(x => x.HasText).ToList(), f);
+        LineNumbers(sheets, f);
         f.Add(new Finding("dimensions", FindingStatus.Info, file, "dimensions on the drawing, equipment sizes against the model extents, nozzle positions and orientations against the vendor data were NOT checked"));
         f.Add(new Finding("clearances", FindingStatus.Info, file, "access and clearances are a judgement for the engineer: not checked"));
         return f;
@@ -45,13 +46,20 @@ public sealed class GaChecker(ModelSnapshot snap, string modelName, GaOptions? o
     private SourceRef ModelSrc(ModelEquipment e) => new(_modelDoc, e.Path.Split(" > ").LastOrDefault() ?? "", e.Name);
 
     // ----------------------------------------------------------------------------- GA-05 / GA-06
-    private static void Completeness(GaSheet s, List<Finding> f)
+    private static void Completeness(IReadOnlyList<GaSheet> sheets, List<Finding> f)
     {
-        var subject = $"sheet {s.Page}";
-        void Item(bool present, string what, string review) => f.Add(present ? new Finding("drawing", FindingStatus.Ok, subject, $"{what} found", Source: new SourceRef(s.File, subject)) : new Finding("drawing", FindingStatus.Review, subject, review));
-        Item(s.Scale.Length > 0, "the scale (" + s.Scale + ")", "no scale was found on the sheet (text 'SCALE 1:n'): look at the title block");
-        Item(s.HasNorthArrow, "a north arrow", "no north arrow was found as text (an arrow drawn as a symbol is not read): look at the drawing");
-        Item(s.Revision.Length > 0, "the revision (" + s.Revision + ")", "no revision was found (text 'REV x'): look at the title block");
+        if (sheets.Count == 0) return;
+        var file = sheets[0].File;
+        void Item(Func<GaSheet, bool> has, string what, string detail)
+        {
+            var missing = sheets.Where(s => !has(s)).Select(s => s.Page).ToList();
+            f.Add(missing.Count == 0
+                ? new Finding("drawing", FindingStatus.Ok, file, $"{what} found on every sheet", Source: new SourceRef(file, $"{sheets.Count} sheet(s)"))
+                : new Finding("drawing", FindingStatus.Review, file, $"{what} was not found as text on sheet(s) {string.Join(", ", missing)}: {detail}"));
+        }
+        Item(s => s.Scale.Length > 0, "the scale", "look at the title block (the text 'SCALE 1:n' is expected)");
+        Item(s => s.HasNorthArrow, "a north arrow", "an arrow drawn as a symbol is not read: look at the drawing");
+        Item(s => s.Revision.Length > 0, "the revision", "look at the title block (the text 'REV x' is expected; a title block drawn as lines is not read)");
     }
 
     // ----------------------------------------------------------------------------- GA-01 / GA-04 / GA-03
@@ -95,7 +103,7 @@ public sealed class GaChecker(ModelSnapshot snap, string modelName, GaOptions? o
             var near = snap.Equipment.Values.First(e => ModelSnapshot.TagKey(e.Tag) == close.K);
             f.Add(new Finding("equipment", FindingStatus.Fail, t.Text, "the text is not a model tag but one character away from one (a typo?)", t.Text, near.Tag, ModelSrc(near), subject));
         }
-        if (s.Tags.Count == 0 && s.Loose.Count == 0) f.Add(new Finding("equipment", FindingStatus.Review, subject, "no equipment tag was read on this sheet (the tags may be in a form the reader does not know)"));
+        if (s.Tags.Count == 0 && s.Loose.Count == 0 && s.Lines.Count == 0) f.Add(new Finding("equipment", FindingStatus.Review, subject, "no equipment tag was read on this sheet (the tags may be in a form the reader does not know)"));
         if (evidence?.Inventory is not null && evidence.Inventory.All(d => d.Kind != InputKind.Pid)) f.Add(new Finding("tags", FindingStatus.Info, subject, "no P&ID in the project inputs: the tags and services were not checked against the P&IDs"));
         if (evidence?.Inventory is not null && evidence.Inventory.All(d => d.Kind != InputKind.Vendor)) f.Add(new Finding("vendor", FindingStatus.Info, subject, "no vendor data in the project inputs: sizes and nozzles were not checked"));
         if (evidence is null) f.Add(new Finding("tags", FindingStatus.Info, subject, "the project inputs were not available: P&ID and vendor data were not consulted"));
@@ -107,6 +115,83 @@ public sealed class GaChecker(ModelSnapshot snap, string modelName, GaOptions? o
         f.Add(hit is not null
             ? new Finding(check, FindingStatus.Ok, t.Text, $"the tag is in the {noun} ({hit.File}, {hit.Loc})", t.Text, $"{hit.File}, {hit.Loc}", new SourceRef(hit.File, hit.Loc, t.Text), subject)
             : new Finding(check, FindingStatus.Review, t.Text, $"the tag was not found in the text of the {noun} (a scan, a different spelling, or it is not there)", t.Text, "(not found)", new SourceRef(noun), subject));
+    }
+
+    // ----------------------------------------------------------------------------- line numbers on a piping plan
+    private static double? NpsValue(string nps)
+    {
+        var parts = nps.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        double total = 0;
+        foreach (var p in parts)
+        {
+            if (p.Contains('/')) { var fr = p.Split('/'); if (fr.Length == 2 && double.TryParse(fr[0], out var a) && double.TryParse(fr[1], out var b) && b != 0) total += a / b; else return null; }
+            else if (double.TryParse(p, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) total += v; else return null;
+        }
+        return total;
+    }
+
+    /// <summary>
+    /// The line numbers printed on a piping plan, once each for the whole drawing, against the model's pipes, the line list and the P&amp;IDs, and the drawings it refers to
+    /// against the project inputs. A line number is compared as the same line only when it matches in full; sizes are compared in inches. Nothing is concluded from a line
+    /// number appearing with different sizes (branches normally have another size) or from an elevation being outside the sheet's plan range (vertical pipes).
+    /// </summary>
+    private void LineNumbers(IReadOnlyList<GaSheet> sheets, List<Finding> f)
+    {
+        var lines = sheets.SelectMany(s => s.Lines).GroupBy(l => l.Key).Select(g => g.First()).ToList();
+        var file = sheets.Count > 0 ? sheets[0].File : "(drawing)";
+        if (lines.Count > 0)
+        {
+            var model = lines.Select(l => (L: l, M: snap.Find(l.Text))).ToList();
+            var found = model.Count(x => x.M is not null);
+            if (snap.Lines.Count > 0)
+            {
+                if (found == 0)
+                    f.Add(new Finding("lines", FindingStatus.Review, file, $"none of the {lines.Count} line numbers on this drawing is a pipe of the exported model: is it the right model, or does the model name its lines differently?", $"{lines.Count} line numbers", "0 found", new SourceRef(_modelDoc)));
+                else
+                {
+                    f.Add(new Finding("lines", FindingStatus.Ok, file, $"{found} of {lines.Count} line numbers are pipes of the model", $"{lines.Count}", $"{found}", new SourceRef(_modelDoc)));
+                    foreach (var (l, m) in model)
+                    {
+                        if (m is null) { f.Add(new Finding("lines", FindingStatus.Review, l.Text, "the line number is not a pipe of the exported model", l.Text, "(not in the model)", new SourceRef(_modelDoc), file)); continue; }
+                        if (Units.ParseQuantity(m.Attr("BORE")) is { } b && Units.DnToNps.TryGetValue(((int)b.Value).ToString(), out var nps) && NpsValue(nps) is { } mv && l.SizeIn is { } ds && Math.Abs(mv - ds) > 0.01)
+                            f.Add(new Finding("lines", FindingStatus.Fail, l.Text, "the size in the line number differs from the model bore", l.SizeIn + "\"", nps + "\"", new SourceRef(_modelDoc, "PIPE BORE", "/" + m.Name), file));
+                    }
+                }
+            }
+            else if (snap.HasEquipment || snap.TotalItems > 0) f.Add(new Finding("lines", FindingStatus.Info, file, "the exported model has no pipes: the line numbers were not compared with it"));
+            if (evidence?.LineList is { Entries.Count: > 0 } ll)
+            {
+                var ok = 0;
+                foreach (var l in lines)
+                {
+                    var e = ll.Find(l.Text).FirstOrDefault(x => x.Key == LineListSet.Normalize(l.Text));
+                    if (e is null) { f.Add(new Finding("line-list", FindingStatus.Review, l.Text, "the line number is not in the line list (or is spelled differently there)", l.Text, "(not found)", new SourceRef("line list"), file)); continue; }
+                    var src = new SourceRef(e.File, $"sheet {e.Sheet}, row {e.Row}", e.LineNo);
+                    if (l.SizeIn is { } ds && e.Fields.TryGetValue("Size", out var sv) && sv.Number is { } ln && Math.Abs(ln - ds) > 0.01 && Math.Abs(ln - ds * 25.4) > 0.5)
+                        f.Add(new Finding("line-list", FindingStatus.Fail, l.Text, "the size in the line number differs from the line list size", l.SizeIn + "\"", sv.Text + (sv.Unit is null ? "" : " " + sv.Unit), src, file));
+                    else ok++;
+                }
+                if (ok > 0) f.Add(new Finding("line-list", FindingStatus.Ok, file, $"{ok} of {lines.Count} line numbers are in the line list with the same size", $"{lines.Count}", $"{ok}", new SourceRef("line list")));
+            }
+            else if (evidence is not null) f.Add(new Finding("line-list", FindingStatus.Info, file, "no line list in the project inputs: the line numbers were not compared with it"));
+            if (evidence?.Index is { } idx && evidence.Inventory is { } inv && inv.Any(d => d.Kind == InputKind.Pid))
+            {
+                var onPid = 0;
+                foreach (var l in lines)
+                {
+                    var hit = idx.Search(l.Text, InputKind.Pid, 6).FirstOrDefault(h => LineListSet.Normalize(h.Text).Contains(LineListSet.Normalize(l.Text), StringComparison.Ordinal));
+                    if (hit is not null) onPid++;
+                    else f.Add(new Finding("tags", FindingStatus.Review, l.Text, "the line number was not found in the text of the P&IDs (a scan, a different spelling, or it is not there)", l.Text, "(not found)", new SourceRef("P&ID"), file));
+                }
+                if (onPid > 0) f.Add(new Finding("tags", FindingStatus.Ok, file, $"{onPid} of {lines.Count} line numbers are in the P&IDs", $"{lines.Count}", $"{onPid}", new SourceRef("P&ID")));
+            }
+        }
+        var refs = sheets.SelectMany(s => s.References).Distinct().ToList();
+        if (refs.Count > 0 && evidence?.Inventory is { } inv2)
+        {
+            var absent = refs.Where(r => !inv2.Any(d => d.RelPath.Contains(r, StringComparison.OrdinalIgnoreCase) || d.RelPath.Contains(r[2..], StringComparison.OrdinalIgnoreCase))).ToList();
+            f.Add(new Finding("drawing", FindingStatus.Info, file, absent.Count == 0 ? $"all {refs.Count} drawings this one continues on are in the project inputs" : $"{absent.Count} of the {refs.Count} drawings this one continues on are not in the project inputs (matchlines and CONT. ON DRAWING were not followed): {string.Join(", ", absent.Take(12))}"));
+        }
     }
 
     // ----------------------------------------------------------------------------- GA-02
