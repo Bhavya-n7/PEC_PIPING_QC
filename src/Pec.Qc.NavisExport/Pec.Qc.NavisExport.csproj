@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Navisworks side of the product, two small .NET Framework 4.8 programs built against the user's OWN Navisworks installation (its DLLs are referenced, never copied
+    or redistributed):
+      PecQcExporter.dll          the plugin that runs inside a hidden Navisworks and writes the model snapshot (read-only: nothing is modified or saved)
+      Pec.Qc.NavisRunner.exe     starts that hidden Navisworks on a COPY of the model, runs the plugin, closes it
+    Where Navisworks is installed: -p:NavisDir=... or the newest "Navisworks Manage *" folder under Program Files. Without Navisworks this project builds nothing, so a
+    PC without it can still build the rest of the product.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>PecQcExporter</AssemblyName>
+    <RootNamespace>PecQc</RootNamespace>
+    <PlatformTarget>x64</PlatformTarget>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <NavisDir Condition="'$(NavisDir)' == ''">$([System.IO.Directory]::GetDirectories('$(ProgramW6432)\Autodesk', 'Navisworks Manage*')[0])</NavisDir>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(NavisDir)' == '' Or !Exists('$(NavisDir)\Autodesk.Navisworks.Api.dll')">
+    <BuildWithoutNavisworks>true</BuildWithoutNavisworks>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(BuildWithoutNavisworks)' != 'true'">
+    <Reference Include="Autodesk.Navisworks.Api">
+      <HintPath>$(NavisDir)\Autodesk.Navisworks.Api.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(BuildWithoutNavisworks)' == 'true'">
+    <Compile Remove="**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

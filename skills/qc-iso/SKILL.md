@@ -5,26 +5,30 @@ description: How to check a piping isometric (spool drawing, PDF) against the Na
 
 # Piping isometric check
 
-Method for one line, which may run over several sheets. Plan with `qc_checklist` (type iso): 13 items. Findings and the report: skill `qc-findings-and-reports`. Where the facts come from: skill `qc-project-inputs`.
+Method for one drawing, which may hold several lines and several sheets. Checklist: `qc_checklist` (type iso, 13 items). Findings and the report: skill `qc-findings-and-reports`. Where the facts come from: skill `qc-project-inputs`.
 
-## Know what tools you have
-Check your tool list. This skill describes the whole check; **a comparison you have no tool for is INFO "not verified (no tool)", never a pass.** The comparison with the Navisworks model needs a model tool; if there is none, items ISO-01 (against the model), 05, 08, 09 and 10 stay unverified and you say so first.
+## The tools do the comparing, you report it
+1. **`model_summary`** first. It says which exported model exists, when it was exported, how many lines it has, duplicated pipes and whether it is older than the model file. No exported model: say so; `model_export` makes one on a PC that has Navisworks (it takes up to a few minutes and asks the user to approve). A stale warning goes in the answer.
+2. **`iso_check`** with the PDF (path, or its name in the project inputs folder). It reads the drawing and compares: identity (line in the model, duplicates, sheets 1..n, one revision, CONT. links, class and size in the line number), title block against the model, BOM against the model components (quantities and sizes by type), coordinates against model points and connected lines, cut pipe lengths against the BOM and the model, and where the project has them the line list (with units), the PMS class and the P&ID. A folder of drawings: **`iso_check_folder`**, then `iso_check` on the ones that need attention.
+3. **Answer**: the verdict, then every FAIL and REVIEW with the drawing value, the source value and the source (it is in each problem), then `notVerified`. `iso_check` with `apply=true` saves the Excel and Markdown report after the user approves; offer it.
 
-## Steps
-1. **Read the drawing.** `pdf_read` the pages (text layer). Note per sheet: line number, sheet x of n, revision, the title-block table (test / design / operating pressure and temperature, test medium, insulation, paint, PWHT, phase, P&ID number, class), the BOM (fabrication and erection, item, size, quantity), the cut pipe table, coordinate labels, support tags, continuation (`CONT. ON / FROM`) lines and drawings, notes and hold items. If a page has no text, say the sheet cannot be read.
-2. **Line list** (`line_list_lookup` on the line number): size, fluid, class, pressures, temperatures, insulation, P&ID number. Compare with the title block, field by field, **with units** (the isometric prints psig and degF). Missing in the line list = REVIEW.
-3. **Line number parts**: size, fluid code, area, class in the line number must agree with the line list and with the title block (`PIPNG CLASS`).
-4. **PMS** (`inputs_search` kind pms for the class and size, then `inputs_read`): component descriptions on the BOM (material, rating, schedule, ends, flange facing, gasket, studs) against the class sheet. Quote the page.
-5. **P&ID** (`inputs_search` kind pid for the line number): the P&ID number on the drawing shows this line; the line's size, class and fluid on the P&ID agree.
-6. **Vendor items** (valves, special items): tag in `inputs_search` kind vendor; rating, face to face, weight.
-7. **Across sheets**: add the BOM quantities of all sheets of the line before comparing with the model; the sum of the cut lengths must equal the pipe quantity on the sheet; sheet numbers 1..n all present; one revision on all sheets; continuation drawings exist.
-8. **Model** (when a model tool exists): line present, attributes, component counts by type and size, start / end / continuation coordinates, pipe length, supports. The model is in mm, Pa and degC; the isometric in feet-inches, psig and degF: convert with stated units and a tolerance (a coordinate to 1/16 inch).
-9. **Client rules** (`client_requirements` for the client, then `requirements_check` for the line number format and other pattern rules; apply the manual rules yourself and quote their source).
-10. **Report** with `qc_report_write` (type iso).
+## Read the result honestly
+- **FAIL** = the drawing and a source disagree. Both values and the source are in the finding; quote them. **REVIEW** = a person must look (a value missing, unclear, or the model disagrees with itself). **`notVerified`** = it was NOT checked: say so, never write it as a pass.
+- "OK" findings are what matched. A verdict OK means nothing found among what could be compared, not that the drawing is right.
+- Support codes (WE04, WG01...) are matched to model attachments by the **support map** in `iso-rules.json`. Until the QC lead adds it from the client's support collection, supports are REVIEW with the specs to add, and only their total is compared. Do not guess the mapping.
+- PMS: only the class is looked up. Rating, material and schedule against the class sheet are **not** verified by the tool: for a PMS question use `inputs_search` kind pms and `inputs_read`, quote the page, and compare yourself, labelled as such.
+- Vendor data (valve face-to-face) is not compared by the tool: INFO. Check by hand with `inputs_search` kind vendor when asked.
+- A coordinate within the tolerance is OK; 25 mm off the model's own start point is a FAIL (a wrong label); far from every point is a REVIEW (a tee branch end, or an error).
+- Gaskets and bolts are derived by the isometric tool and not modelled: INFO.
+- A page with no text (a scan) cannot be read: REVIEW, say the sheet was not checked.
+
+## Look closer
+- `iso_read` shows exactly what was read from the drawing (title block, BOM, cut pipe, coordinates, links, warnings). A warning means that part was not read.
+- `model_line` shows the line in the model: attributes, branches, components in order with positions (mm). Use both to explain a finding or to answer a question about either.
+- Client rules (`client_requirements`, then `requirements_check` for the line number format and other pattern rules): quote the rule's source.
 
 ## What usually matters
-- A value that is **blank in the model or the line list** is a REVIEW, and it is the most common finding. List it with the exact field.
-- When the model, the line list and the drawing do not all agree, show all three values.
-- Gaskets and bolts are normally not in the model: INFO, not a failure.
-- Part numbers on the drawing (item numbers) are not in the model; compare by component type, size and specification.
-- Do not recompute the drawing's dimensions: you check that numbers agree, you do not redesign.
+- A value **blank in the model or the line list** is a REVIEW and the most common finding: list the exact field.
+- When the model, the line list and the drawing do not all agree, show all values.
+- The model is in mm, Pa and degC; the drawing in feet-inches, psig and degF. The tool converts with a tolerance; do not recompute by hand unless asked.
+- Do not redesign: you check that numbers agree.

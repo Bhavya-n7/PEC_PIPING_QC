@@ -39,6 +39,17 @@ if ($LASTEXITCODE) { throw 'publish of the MCP server failed' }
 Get-ChildItem $mcpDir -Include *.pdb -Recurse | Remove-Item -Force
 foreach ($need in 'mcp\Pec.Qc.Mcp.exe', 'skills', 'prompts', 'help\help.md') { if (-not (Test-Path (Join-Path "$stage\app" $need))) { throw "the package is missing $need" } }
 
+# the Navisworks export tool (net48, built against the Navisworks installed on THIS build PC; the Navisworks DLLs themselves are never copied into the package)
+$navisDir = Get-ChildItem "$env:ProgramW6432\Autodesk" -Directory -Filter 'Navisworks Manage*' -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName 'Autodesk.Navisworks.Automation.dll') } | Sort-Object Name -Descending | Select-Object -First 1
+if ($navisDir) {
+  Write-Host "2b/5 Navisworks export tool (built against $($navisDir.Name))"
+  foreach ($proj in 'Pec.Qc.NavisExport', 'Pec.Qc.NavisRunner') { dotnet build "$root\src\$proj" -c Release $vp -p:NavisDir="$($navisDir.FullName)" | Out-Null; if ($LASTEXITCODE) { throw "build of $proj failed" } }
+  $navisOut = Join-Path $stage 'app\navis'; New-Item -ItemType Directory -Force $navisOut | Out-Null
+  Copy-Item "$root\src\Pec.Qc.NavisRunner\bin\Release\net48\Pec.Qc.NavisRunner.exe*" $navisOut
+  Copy-Item "$root\src\Pec.Qc.NavisExport\bin\Release\net48\PecQcExporter.dll" $navisOut
+  foreach ($need in 'Pec.Qc.NavisRunner.exe', 'PecQcExporter.dll') { if (-not (Test-Path (Join-Path $navisOut $need))) { throw "the package is missing navis\$need" } }
+} else { Write-Warning 'Navisworks Manage is not installed on this PC: the package has NO model export tool (model_export will say so). Build on a PC with Navisworks to include it.' }
+
 Write-Host '3/5 office defaults and documentation'
 foreach ($f in 'README.md', 'CHANGELOG.md') { if (Test-Path "$root\$f") { Copy-Item "$root\$f" "$stage\app" } }
 $cfg = Join-Path $root 'config.local.json'

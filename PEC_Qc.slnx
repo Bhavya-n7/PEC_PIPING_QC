@@ -4,6 +4,8 @@
     <Project Path="src/Pec.Qc.Mcp/Pec.Qc.Mcp.csproj" />
     <Project Path="src/Pec.Qc.Desktop/Pec.Qc.Desktop.csproj" />
     <Project Path="src/Pec.Qc.Setup/Pec.Qc.Setup.csproj" />
+    <Project Path="src/Pec.Qc.NavisExport/Pec.Qc.NavisExport.csproj" />
+    <Project Path="src/Pec.Qc.NavisRunner/Pec.Qc.NavisRunner.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Pec.Qc.Tests/Pec.Qc.Tests.csproj" />
