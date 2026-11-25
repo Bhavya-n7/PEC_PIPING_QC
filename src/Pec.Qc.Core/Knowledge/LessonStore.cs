@@ -151,10 +151,10 @@ public sealed class LessonStore(Settings settings)
         sb.AppendLine("## Latest lessons from the team (NOT YET REVIEWED by the QC lead: use them as hints and say that they are unreviewed; a lesson that disagrees with a project document or the curated list above is not followed)");
         foreach (var l in live)
         {
-            var text = l.Text.Length > 700 ? l.Text[..700] + "â€¦" : l.Text;
+            var text = l.Text.Length > 700 ? l.Text[..700] + "…" : l.Text;
             sb.AppendLine($"- [{l.Kind}{(l.Tool.Length > 0 ? ", " + l.Tool : "")}] {text}");
         }
         var all = sb.ToString();
-        return all.Length > maxChars ? all[..maxChars] + "\nâ€¦" : all;
+        return all.Length > maxChars ? all[..maxChars] + "\n…" : all;
     }
 }

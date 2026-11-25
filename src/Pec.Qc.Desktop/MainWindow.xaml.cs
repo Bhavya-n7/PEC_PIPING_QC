@@ -37,7 +37,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        SizeChanged += (_, _) => FitAllCards();
+        SizeChanged += (_, _) => { FitAllCards(); if (_cur?.Panel is { } pn) FitWidths(pn); };
         Loaded += (_, _) => FitAllCards();
         Loaded += async (_, _) => await StartAsync();
         Loaded += (_, _) => _ = Task.Run(PullSharedKit);
@@ -208,11 +208,11 @@ public partial class MainWindow : Window
         ProfileBox.IsEnabled = names.Count > 0;
         _loading = false;
         var p = _profiles.Active;
-        var line = p is null ? "" : string.Join("   Â·   ", new[] { p.Client, p.ProjectNo }.Where(x => x.Length > 0));
+        var line = p is null ? "" : string.Join("   ·   ", new[] { p.Client, p.ProjectNo }.Where(x => x.Length > 0));
         ProfileLine.Text = line;
         WelcomeProjectName.Text = p?.Name ?? "No project yet";
         WelcomeProjectLine.Text = p is null ? "Add your project so the assistant knows the client, the Navisworks model and the project inputs."
-            : string.Join("   Â·   ", new[] { p.Client, p.ProjectNo.Length > 0 ? "No. " + p.ProjectNo : "", p.ModelFile.Length > 0 ? Path.GetFileName(p.ModelFile) : "no model set" }.Where(x => x.Length > 0));
+            : string.Join("   ·   ", new[] { p.Client, p.ProjectNo.Length > 0 ? "No. " + p.ProjectNo : "", p.ModelFile.Length > 0 ? Path.GetFileName(p.ModelFile) : "no model set" }.Where(x => x.Length > 0));
         RefreshInputs();
         if (ProjectsView.Visibility == Visibility.Visible) BuildProjects();
     }
@@ -276,7 +276,7 @@ public partial class MainWindow : Window
             var head = new DockPanel();
             if (active) { var pill = Pill("Active", "AccentSoft", "Accent"); DockPanel.SetDock(pill, Dock.Right); head.Children.Add(pill); }
             if (_profiles.IsLocalOnly(p.Name)) { var lp = Pill("This PC only", "AccentSoft", "Accent"); DockPanel.SetDock(lp, Dock.Right); lp.Margin = new Thickness(0, 0, 6, 0); head.Children.Add(lp); }
-            head.Children.Add(IconTile("î ¸", "AccentSoft", "Accent", 40));
+            head.Children.Add(IconTile("", "AccentSoft", "Accent", 40));
             head.Children.Add(new TextBlock { Text = p.Name, Style = (Style)FindResource("H2"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis });
             stack.Children.Add(head);
             var rows = new StackPanel { Margin = new Thickness(0, 14, 0, 14) };
@@ -311,7 +311,7 @@ public partial class MainWindow : Window
         var add = new Button { Style = (Style)FindResource("TaskCard"), Width = 400, MinHeight = 150, Margin = new Thickness(0, 0, 16, 16) };
         add.Content = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, Children =
         {
-            IconTile("îœ", "AccentSoft", "Accent", 44),
+            IconTile("", "AccentSoft", "Accent", 44),
             new TextBlock { Text = "Add a project", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 10, 0, 2), HorizontalAlignment = HorizontalAlignment.Center },
             new TextBlock { Text = "Name, client, Navisworks model and inputs", Style = (Style)FindResource("Muted"), FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center },
         }};
@@ -331,7 +331,7 @@ public partial class MainWindow : Window
         ["Knowledge"] = ("\uE8F1", "AccentSoft", "Accent"),
     };
 
-    private (string Glyph, string Bg, string Fg) Look(string category) => CategoryLook.TryGetValue(category, out var l) ? l : ("î¥…", "AccentSoft", "Accent");
+    private (string Glyph, string Bg, string Fg) Look(string category) => CategoryLook.TryGetValue(category, out var l) ? l : ("", "AccentSoft", "Accent");
 
     private static string Describe(QuickTask t)
     {
@@ -340,7 +340,7 @@ public partial class MainWindow : Window
         s = System.Text.RegularExpressions.Regex.Replace(s, @"\{\{[a-z]+\}\}", "the project");
         var end = s.IndexOfAny(['.', '?']);
         s = end > 20 ? s[..end] : s;
-        return s.Length > 96 ? s[..93] + "â€¦" : s;
+        return s.Length > 96 ? s[..93] + "…" : s;
     }
 
     private Button TaskCard(QuickTask t)
@@ -484,7 +484,7 @@ public partial class MainWindow : Window
         var list = items.ToList();
         var p = new StackPanel();
         if (list.Count == 0) p.Children.Add(new TextBlock { Text = empty, Style = (Style)FindResource("Muted"), TextWrapping = TextWrapping.Wrap, FontSize = 12.5 });
-        foreach (var s in list.Take(max)) p.Children.Add(new TextBlock { Text = "â€¢  " + s, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 2, 0, 2) });
+        foreach (var s in list.Take(max)) p.Children.Add(new TextBlock { Text = "•  " + s, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 2, 0, 2) });
         if (list.Count > max) p.Children.Add(new TextBlock { Text = $"and {list.Count - max} more", Style = (Style)FindResource("Muted"), FontSize = 12, Margin = new Thickness(0, 4, 0, 0) });
         return p;
     }
@@ -520,11 +520,11 @@ public partial class MainWindow : Window
                 body.Children.Add(grid);
             }
             var state = !hub.Reachable ? "Offline: using the local copy" : hub.Writable ? "Connected" : "Read only";
-            KnowledgePanel.Children.Add(InfoCard("î“", hub.Reachable ? "GoodSoft" : "WarnSoft", hub.Reachable ? "Good" : "Warn", "Shared folder", state, body,
+            KnowledgePanel.Children.Add(InfoCard("", hub.Reachable ? "GoodSoft" : "WarnSoft", hub.Reachable ? "Good" : "Warn", "Shared folder", state, body,
                 ("Open folder", () => OpenFolder(_settings.SharedRoot!)), ("Change", () => Settings_Click(this, new RoutedEventArgs()))));
         }
         else
-            KnowledgePanel.Children.Add(InfoCard("î“", "WarnSoft", "Warn", "Shared folder", "Not set: knowledge stays on this PC",
+            KnowledgePanel.Children.Add(InfoCard("", "WarnSoft", "Warn", "Shared folder", "Not set: knowledge stays on this PC",
                 Lines([], "Set one folder (on the server) so everyone shares skills, lessons, client rules, custom tools and updates."),
                 ("Set the shared folder", () => Settings_Click(this, new RoutedEventArgs()))));
 
@@ -534,7 +534,7 @@ public partial class MainWindow : Window
             var proj = _profiles.Active;
             var folder = proj is null ? null : string.IsNullOrWhiteSpace(proj.InputsFolder) ? _profiles.DefaultInputsFolder(proj.Name) : proj.InputsFolder;
             if (proj is null || string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
-                KnowledgePanel.Children.Add(InfoCard("î¢·", "WarnSoft", "Warn", "Project inputs", proj is null ? "No active project" : "No inputs folder yet",
+                KnowledgePanel.Children.Add(InfoCard("", "WarnSoft", "Warn", "Project inputs", proj is null ? "No active project" : "No inputs folder yet",
                     Lines([], "The PMS, line list, P&IDs and vendor data of a project live in its inputs folder. Add or edit the project to set one."),
                     ("Projects", () => NavProjects.IsChecked = true)));
             else
@@ -548,24 +548,24 @@ public partial class MainWindow : Window
                 var body = new StackPanel();
                 body.Children.Add(Lines(byKind, "The folder is empty."));
                 if (missing.Any()) { var m = Lines(missing, ""); m.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 8, 0, 0)); body.Children.Add(m); }
-                KnowledgePanel.Children.Add(InfoCard("î¢·", missing.Any() ? "WarnSoft" : "GoodSoft", missing.Any() ? "Warn" : "Good", "Project inputs", $"{proj.Name}: {inv.Count} files", body,
+                KnowledgePanel.Children.Add(InfoCard("", missing.Any() ? "WarnSoft" : "GoodSoft", missing.Any() ? "Warn" : "Good", "Project inputs", $"{proj.Name}: {inv.Count} files", body,
                     ("Open folder", () => OpenFolder(folder)), ("What can be checked?", () => AskAssistant("List the project inputs for the active project and say which QC checks each one supports and what is missing."))));
             }
         }
 
         var skills = PromptBuilder.SkillList(_settings.EffectiveSkillsDirectory);
-        KnowledgePanel.Children.Add(InfoCard("î£±", "AccentSoft", "Accent", "Skills", $"{skills.Count} how-to guides", Lines(skills.Select(s => s.Name), "No skills yet."),
+        KnowledgePanel.Children.Add(InfoCard("", "AccentSoft", "Accent", "Skills", $"{skills.Count} how-to guides", Lines(skills.Select(s => s.Name), "No skills yet."),
             ("Open folder", () => OpenFolder(_settings.EffectiveSkillsDirectory)), ("Ask for a new skill", () => AskAssistant("Create a new shared skill from what we have just done. Show me the guide first."))));
 
         // custom tools
         var tools = ToolRegistry.From(_settings).List();
-        KnowledgePanel.Children.Add(InfoCard("î¥…", "PurpleSoft", "Purple", "Custom tools", $"{tools.Count} shared recipes", Lines(tools.Select(t => $"{t.Name}  â€”  {t.Description}"), "None yet. When you repeat the same steps, ask the assistant: \"Save this as a tool\"."),
+        KnowledgePanel.Children.Add(InfoCard("", "PurpleSoft", "Purple", "Custom tools", $"{tools.Count} shared recipes", Lines(tools.Select(t => $"{t.Name}  —  {t.Description}"), "None yet. When you repeat the same steps, ask the assistant: \"Save this as a tool\"."),
             ("List them", () => AskAssistant("What custom tools do we have, and what does each do?")), ("Open folder", () => OpenFolder(_settings.EffectiveToolsDirectory))));
 
         // company lessons (self-learning)
         var lessons = new LessonStore(_settings);
         var approved = lessons.Approved();
-        KnowledgePanel.Children.Add(InfoCard("î»", "TealSoft", "Teal", "Company lessons", $"{approved.Count} approved",
+        KnowledgePanel.Children.Add(InfoCard("", "TealSoft", "Teal", "Company lessons", $"{approved.Count} approved",
             Lines(approved.TakeLast(6).Select(l => $"[{l.Kind}] {l.Text}"), "None yet. When you correct the assistant it records a lesson; an administrator approves lessons into the company list."),
             ("Show them", () => AskAssistant("Read the company lessons (learn_pull) and summarise what applies to my work.")),
             ("Open folder", () => OpenFolder(Path.Combine(_settings.HasShared ? _settings.SharedRoot! : Settings.DataDirectory, "learning")))));
@@ -586,14 +586,14 @@ public partial class MainWindow : Window
         // documents and training
         var pack = TrainingPack.Load(Path.Combine(_settings.EffectiveDocumentsDirectory, "pack"));
         var rawDocs = Directory.Exists(_settings.EffectiveDocumentsDirectory) ? Directory.GetFiles(_settings.EffectiveDocumentsDirectory, "*.*", SearchOption.TopDirectoryOnly).Length : 0;
-        KnowledgePanel.Children.Add(InfoCard("î¢¥", "WarnSoft", "Warn", "Documents & training", pack is null ? "Not converted yet" : $"{pack.Documents.Count} documents converted",
+        KnowledgePanel.Children.Add(InfoCard("", "WarnSoft", "Warn", "Documents & training", pack is null ? "Not converted yet" : $"{pack.Documents.Count} documents converted",
             Lines(pack?.Documents.Select(d => $"{d.Title}  ({d.Pages} pages, {d.Sections.Count} sections)") ?? [], rawDocs > 0 ? $"{rawDocs} file(s) in the documents folder. Convert them so the assistant can read them section by section." : "Put the client's procedures and training here (PDF, Markdown, text)."),
             ("Open folder", () => OpenFolder(_settings.EffectiveDocumentsDirectory)), ("Convert & index", () => AskAssistant("Convert the documents in my documents folder so they can be searched (convert_training), then tell me how many documents and sections it holds."))));
 
         // learning
         var entries = KnowledgeStore.From(_settings).All();
         var byCat = entries.GroupBy(e => e.Category).OrderByDescending(g => g.Count()).Select(g => $"{g.Key}: {g.Count()}");
-        KnowledgePanel.Children.Add(InfoCard("î£½", "GoodSoft", "Good", "Learning & context", $"{entries.Count} saved notes", Lines(byCat, "Nothing saved yet. After a task, the assistant offers to save lessons, decisions and client rules (you approve each)."),
+        KnowledgePanel.Children.Add(InfoCard("", "GoodSoft", "Good", "Learning & context", $"{entries.Count} saved notes", Lines(byCat, "Nothing saved yet. After a task, the assistant offers to save lessons, decisions and client rules (you approve each)."),
             ("Open learning", () => OpenFolder(_settings.EffectiveKnowledgeDirectory)), ("Save what we learned", () => AskAssistant("Record what we learned in this chat: the decisions, the problems found and how they were solved, and anything to avoid. Use remember with the right categories and sources, and show me each entry before saving."))));
     }
 
@@ -644,7 +644,7 @@ public partial class MainWindow : Window
         {
             _settings.AutoUpdateTried = l.Version;
             try { _settings.Save(); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
-            UpdateText.Text = $"Installing version {l.Version}â€¦";
+            UpdateText.Text = $"Installing version {l.Version}…";
             await StartUpdateAsync(auto: true);
         }
     }
@@ -774,6 +774,7 @@ public partial class MainWindow : Window
         WelcomeScroll.Visibility = Visibility.Collapsed;
         ChatScroll.Content = s.Panel;
         ChatScroll.Visibility = Visibility.Visible;
+        Dispatcher.BeginInvoke(new Action(() => FitWidths(s.Panel)), System.Windows.Threading.DispatcherPriority.Loaded);
         // notices that were waiting on the welcome screen move into the conversation
         foreach (var n in Notices.Children.OfType<UIElement>().ToList()) { Notices.Children.Remove(n); s.Panel.Children.Add(n); }
     }
@@ -784,10 +785,10 @@ public partial class MainWindow : Window
     {
         if (role == Role.System && !s.Started)
         {
-            var notice = new Border { Style = (Style)FindResource("Card"), Padding = new Thickness(14, 10, 14, 10), Margin = new Thickness(0, 0, 0, 10), Background = Res("AccentSoft"), BorderBrush = Res("Accent"), HorizontalAlignment = HorizontalAlignment.Left, MaxWidth = 900 };
+            var notice = new Border { Style = (Style)FindResource("Card"), Padding = new Thickness(14, 10, 14, 10), Margin = new Thickness(0, 0, 0, 10), Background = Res("AccentSoft"), BorderBrush = Res("Accent"), HorizontalAlignment = HorizontalAlignment.Left, MaxWidth = 900, Tag = "notice" };
             notice.Child = new DockPanel { Children =
             {
-                new TextBlock { Text = "î¥†", Style = (Style)FindResource("Icon"), Foreground = Res("Accent"), Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Top },
+                new TextBlock { Text = "", Style = (Style)FindResource("Icon"), Foreground = Res("Accent"), Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Top },
                 new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap },
             }};
             Notices.Children.Add(notice);
@@ -803,7 +804,7 @@ public partial class MainWindow : Window
         {
             el = new Border
             {
-                Background = Res("Accent"), CornerRadius = new CornerRadius(16, 16, 4, 16), Padding = new Thickness(16, 11, 16, 11), Margin = new Thickness(120, 8, 0, 8), MaxWidth = 700, HorizontalAlignment = HorizontalAlignment.Right,
+                Background = Res("Accent"), CornerRadius = new CornerRadius(16, 16, 4, 16), Padding = new Thickness(16, 11, 16, 11), Margin = new Thickness(120, 8, 0, 8), MaxWidth = 700, HorizontalAlignment = HorizontalAlignment.Right, Tag = "user",
                 Child = new TextBox { Text = text, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, BorderThickness = new Thickness(0), Background = Brushes.Transparent, Foreground = Brushes.White, FontSize = 14, Cursor = Cursors.IBeam },
             };
         }
@@ -813,20 +814,36 @@ public partial class MainWindow : Window
                 Child = new Image { Source = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/logo.png")), Margin = new Thickness(5), Stretch = Stretch.Uniform } };
             var card = new Border { Style = (Style)FindResource("Card"), Padding = new Thickness(18, 13, 18, 13), MaxWidth = 800,
                 Child = new RichTextBox { Document = MarkdownView.RenderChat(text), IsReadOnly = true, BorderThickness = new Thickness(0), Background = Brushes.Transparent, Padding = new Thickness(0), VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, IsDocumentEnabled = false, Foreground = Res("Ink") } };
-            var row = new DockPanel { Margin = new Thickness(0, 8, 90, 8), HorizontalAlignment = HorizontalAlignment.Left };
+            var row = new DockPanel { Margin = new Thickness(0, 8, 90, 8), HorizontalAlignment = HorizontalAlignment.Left, Tag = "ai" };
             row.Children.Add(avatar); row.Children.Add(card);
             DockPanel.SetDock(avatar, Dock.Left);
             el = row;
         }
         s.Panel.Children.Add(el);
+        FitWidths(s.Panel);
         if (s == _cur) ChatScroll.ScrollToEnd();
         if (persist) Persist(s, role, text);
         return el;
     }
 
+    /// <summary>Message bubbles follow the width of the chat: a user message up to about three quarters of it, a reply up to the whole row, so text re-wraps when the window is resized.</summary>
+    private void FitWidths(Panel panel)
+    {
+        var w = ChatScroll.ViewportWidth > 0 ? ChatScroll.ViewportWidth : ChatScroll.ActualWidth;
+        if (w <= 0) return;
+        foreach (var c in panel.Children.OfType<FrameworkElement>())
+            switch (c.Tag as string)
+            {
+                case "user": c.MaxWidth = Math.Clamp(w * 0.75, 260, 1100); break;
+                case "notice": c.MaxWidth = Math.Clamp(w - 40, 260, 1400); break;
+                case "ai" when c is DockPanel row && row.Children.Count > 1 && row.Children[1] is Border card:
+                    card.MaxWidth = Math.Clamp(w - 90 - 44 - 28, 240, 1300); break;
+            }
+    }
+
     private FrameworkElement Thinking(ChatSession s)
     {
-        var dots = new TextBlock { Text = "Working on itâ€¦", Foreground = Res("Accent"), FontSize = 12.5, FontWeight = FontWeights.SemiBold };
+        var dots = new TextBlock { Text = "Working on it…", Foreground = Res("Accent"), FontSize = 12.5, FontWeight = FontWeights.SemiBold };
         dots.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(1, 0.35, TimeSpan.FromMilliseconds(700)) { AutoReverse = true, RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever });
         var el = new Border { Margin = new Thickness(44, 4, 0, 4), Child = dots, HorizontalAlignment = HorizontalAlignment.Left };
         ShowChat(s);
@@ -839,7 +856,7 @@ public partial class MainWindow : Window
     {
         s.StepInput = input;
         s.StepBox = new TextBox { Text = "Input\n" + input, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, FontFamily = (FontFamily)FindResource("MonoFont"), FontSize = 11.5, MaxHeight = 280, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Background = new SolidColorBrush(Color.FromRgb(0xF4, 0xF6, 0xFB)), BorderThickness = new Thickness(0), Padding = new Thickness(10) };
-        s.Step = new Expander { Style = (Style)FindResource("StepExpander"), Margin = new Thickness(44, 3, 90, 3), Content = s.StepBox, Header = StepHeader("î¨", "InkMuted", Nice(tool), "runningâ€¦") };
+        s.Step = new Expander { Style = (Style)FindResource("StepExpander"), Margin = new Thickness(44, 3, 90, 3), Content = s.StepBox, Header = StepHeader("", "InkMuted", Nice(tool), "running…") };
         s.Step.Tag = tool;
         s.Panel.Children.Add(s.Step);
     }
@@ -848,7 +865,7 @@ public partial class MainWindow : Window
     {
         if (s.Step is null || s.StepBox is null) return;
         var tool = (string)s.Step.Tag;
-        s.Step.Header = StepHeader(error ? "îœ‘" : "îœ¾", error ? "Bad" : "Good", Nice(tool), error ? "failed" : "done");
+        s.Step.Header = StepHeader(error ? "" : "", error ? "Bad" : "Good", Nice(tool), error ? "failed" : "done");
         s.StepBox.Text = "Input\n" + s.StepInput + "\n\nResult\n" + result;
         if (error) s.Step.IsExpanded = true;
         s.Step = null;

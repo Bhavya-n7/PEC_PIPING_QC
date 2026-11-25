@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.1.0 - first release candidate (Phases 0-4)
+- UI: icons and the ellipsis / bullet / dash characters showed as empty boxes and as "runningâ€¦" (text saved with the wrong encoding since Phase 9): repaired in four files and a test now fails if any source file contains such text; chat bubbles follow the width of the window (a reply uses the room available, a user message up to three quarters of it) and re-wrap when the window is resized.
 - DWG files are read by a reader built into the product (no AutoCAD needed); AutoCAD's console is only a fallback.
 - P&ID and GA checks accept DXF and DWG drawings as well as PDFs.
 - CAD files: `cad_read` reads DXF (texts, attributes, layers, counts, line lengths) and DWG (converted through AutoCAD's console on a copy); NWD attachments are exported with model_export; skill `qc-engineer-mindset` (plan any task, open everything attached, cross-check, say what was not checked).

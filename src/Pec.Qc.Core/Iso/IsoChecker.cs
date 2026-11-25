@@ -421,7 +421,7 @@ public sealed class IsoChecker(ModelSnapshot snap, string modelName, IsoRules ru
     private static double? ListDegF(LlValue v)
     {
         if (v.Number is not { } n) return null;
-        return (v.Unit ?? "").ToLowerInvariant().Replace(" ", "").Replace("deg", "").Replace("Â°", "") switch { "f" => n, "c" => Units.CToF(n), "k" => Units.CToF(n - 273.15), _ => null };
+        return (v.Unit ?? "").ToLowerInvariant().Replace(" ", "").Replace("deg", "").Replace("°", "") switch { "f" => n, "c" => Units.CToF(n), "k" => Units.CToF(n - 273.15), _ => null };
     }
 
     private List<Finding> LineListCheck(List<IsoSheet> sheets)

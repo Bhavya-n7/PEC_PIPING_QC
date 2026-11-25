@@ -40,7 +40,7 @@ public static class ActivityLog
         }
     }
 
-    private static string Trunc(string t, int max) => t.Length <= max ? t : t[..max] + "â€¦";
+    private static string Trunc(string t, int max) => t.Length <= max ? t : t[..max] + "…";
 
     /// <summary>Everything logged since a date, newest first, optionally for one person (name or employee code) or containing some words.</summary>
     public static IReadOnlyList<ActivityRow> Read(Settings s, DateTime sinceUtc, string? who = null, string? contains = null, string? type = null, int limit = 200)
