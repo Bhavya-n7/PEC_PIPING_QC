@@ -230,10 +230,13 @@ Rules: seed missing files only, never overwrite shared files (people edit them);
 - **Not verified:** a truly clean PC (no Windows Sandbox or VM on this PC; the package was run from an unzipped folder, which still had .NET, Claude Code and Navisworks around it); SmartScreen; a person clicking through Setup and the app on another PC; the security sign-off itself
 - Exit (open): the security sign-off by PEC's IT / security owner, who needs `docs/security-review.md` ("To do before the pilot")
 
-### Phase 11: Pilot and office rollout
-- [ ] Pilot with a few QC engineers on a live project; metrics: install success, findings accepted vs rejected, time saved per iso
-- [ ] Waves through the shared installer; support hours
-- Exit: QC team on the stable channel
+### Phase 11: Pilot and office rollout - PREPARED (the pilot itself has not been run: it needs real engineers and real drawings)
+- [x] **Pilot kit built**: `finding_feedback` (the engineer's verdict on each finding: confirmed / false alarm / missed), `pilot_time` (minutes with the assistant against the manual estimate), `pilot_metrics` (QC lead: precision, recall, time saved, which checks give the false alarms and misses, installs, reports saved; counts shown), `pilot_compare` (QC lead or engineer: a saved report against the QC team's own hand list, Excel or CSV: found as FAIL / flagged as REVIEW / missed, and the FAILs that nobody listed), Setup logs whether an install worked (`pilot\installs`). Records are small JSON lines on the share, kept locally while it is away and sent back. 19 tests, 4 mutation checks (one survived at first: a hand finding about another line must not match: test added)
+- [x] **Measured now, on seeded errors** (not hand QC): the real isometric and its five copies with a known injected error, saved reports compared with the list of injected errors: **5 of 5 injected errors found as FAIL, 0 missed, 0 FAIL on the genuine drawing** (the genuine one gives REVIEW for the model's own inconsistencies). 3 of the 8 FAILs are not on the list because they are a second view of the same injected error (class differs between sheets AND from the model, pipe quantity AND total pipe length, test pressure between sheets AND from the model), so the FAIL precision of 5/8 is a floor. One drawing and five single errors: an anecdote, not a rate
+- [x] **Documents**: `docs/pilot-plan.md` (who, how long, steps per drawing, measures with PROPOSED targets, stop rules, data), `docs/rollout.md` (before wave 1, three waves, support, rollback), `docs/pilot-hand-list-template.csv`; the skill `qc-findings-and-reports` tells the assistant to ask for the engineer's verdicts and times
+- [ ] **Pilot with a few QC engineers on a live project**: NOT run. Needs the engineers, the project's PMS / line list / P&IDs, the support map, and the hand-QC lists
+- [ ] **Waves through the shared installer, support hours**: not started (see `docs/rollout.md`)
+- Exit (open): QC team on the stable channel. The targets in the plan are proposals for the QC lead and the owner to confirm
 
 ---
 

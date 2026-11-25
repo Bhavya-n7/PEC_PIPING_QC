@@ -12,7 +12,7 @@ public sealed record OfflineSyncReport(bool SharedReachable, int Files, int Line
 /// </summary>
 public static class OfflineQueue
 {
-    private static readonly string[] Folders = [Path.Combine("learning", "inbox"), "activity"];
+    private static readonly string[] Folders = [Path.Combine("learning", "inbox"), "activity", Path.Combine("pilot", "feedback"), Path.Combine("pilot", "time")];
 
     public static OfflineSyncReport Sync(Settings settings)
     {

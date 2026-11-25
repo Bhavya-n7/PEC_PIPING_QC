@@ -205,13 +205,21 @@ public partial class SetupWindow : Window
                     }
                 });
                 Log("Installed. Start \"PEC QC Assistant\" and sign in with your Claude account.");
+                RecordInstall(true, "installed");
                 ActionButton.Content = "Start the assistant";
             }
             _done = true;
             ActionButton.IsEnabled = true;
             if (_auto && !_uninstall) { await Task.Delay(1500); Action_Click(ActionButton, new RoutedEventArgs()); }   // starts the new version and closes Setup
         }
-        catch (Exception ex) { Log("Failed: " + ex.Message); ActionButton.IsEnabled = true; }
+        catch (Exception ex) { Log("Failed: " + ex.Message); ActionButton.IsEnabled = true; if (!_uninstall) RecordInstall(false, ex.Message); }
+    }
+
+    /// <summary>One line on the shared folder (machine, version, worked or not) so the pilot can count how many installs succeeded. Never blocks or fails the install.</summary>
+    private static void RecordInstall(bool ok, string summary)
+    {
+        try { Pec.Qc.Core.Pilot.PilotStore.RecordInstall(Settings.Load(), Pec.Qc.Core.Setup.Updates.CurrentVersion, ok, summary); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();

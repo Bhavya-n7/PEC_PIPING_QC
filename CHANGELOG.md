@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.1.0 - first release candidate (Phases 0-4)
+- Phase 11 (pilot kit): finding_feedback, pilot_time, pilot_metrics and pilot_compare (the assistant's saved report against the QC team's own hand list), install results logged by Setup, pilot plan, rollout procedure and a hand-list template.
 - Setup offers the MCP servers for AutoCAD, Civil 3D, Plant 3D, Navisworks and Revit: the team's installers are bundled unmodified, checked against a manifest of SHA-256 hashes, ticked when the program is found, run in their own windows, skipped in automatic updates.
 - Approvals: requests are shown from the start of the app (not after the Claude sign-in check) and a tool now waits up to 60 seconds for the user's click instead of answering "waiting" at once; a denial is reported as such.
 - Phase 10 (hardening): updates are authenticated (the release file is signed with the company's release key and the SHA-256 of Setup and the payload are checked before anything runs); replacing an existing file with the Office tools asks the user; the activity report and the knowledge pack conversion need the QC lead role; more credential shapes are scrubbed; unreviewed lessons are shown as hints; the activity log can be limited to metadata; scripts for the release key and for code signing; security review, runbook and quick start.
