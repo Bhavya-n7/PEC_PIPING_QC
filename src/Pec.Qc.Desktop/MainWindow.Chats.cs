@@ -60,6 +60,7 @@ public partial class MainWindow
     private void InitChats()
     {
         try { _history.Prune(); } catch (IOException) { }
+        try { Pec.Qc.Core.Setup.Installer.CleanupAside(AppContext.BaseDirectory); } catch (IOException) { }      // files an update had to move aside while they were in use
         Closing += (_, _) => { foreach (var s in _open.Values) s.Cts?.Cancel(); _cur.Cts?.Cancel(); };
         ShowSession(_cur);
     }

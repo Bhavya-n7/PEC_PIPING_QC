@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.1
+- Fix: an automatic update failed with "The process cannot access the file ...\mcp\Pec.Qc.Mcp.exe because it is being used by another process" whenever a Claude Code or Claude Desktop session was still running the MCP server. Setup now moves a locked file aside (Windows allows renaming a running program), puts the new one in place and removes the leftover later; the running session is not killed and keeps the old copy until it restarts.
+
 ## 0.3.0
 - CLI-Anything harnesses: when the user needs other software driven and no tool does it, Claude looks for a ready harness (the office folder, or the CLI-Hub list of about 80 ready-made CLIs), or builds one with the CLI-Anything method (shipped with the assistant), tests it, and shares it on the office folder for every colleague. New tools `harness_guide`, `harness_find`, `harness_install`, `harness_skill`, `harness_run`, `harness_test`, `harness_publish`; skill `qc-cli-anything`. Harnesses run in a private Python environment (uv); every run is approved by the user.
 

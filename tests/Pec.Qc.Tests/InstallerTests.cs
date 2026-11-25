@@ -62,6 +62,40 @@ public class InstallerTests
         Assert.True(File.Exists(System.IO.Path.Combine(shared, "hub.json")));
     }
 
+
+    [Fact]
+    public void An_update_works_while_the_MCP_server_is_really_running_the_locked_file_is_moved_aside_and_cleaned_up_later()
+    {
+        using var r = new Rig();
+        r.Make().Install(r.Payload, Only(), "0.1.0");
+        var mcp = System.IO.Path.Combine(r.Paths.AppDir, "mcp", "Pec.Qc.Mcp.exe");
+        File.Copy(System.IO.Path.Combine(Environment.SystemDirectory, "ping.exe"), mcp, true);               // a real program, started from the installed location
+        r.T.File("payload/mcp/Pec.Qc.Mcp.exe", "NEW MCP");
+        var psi = new System.Diagnostics.ProcessStartInfo(mcp, "-n 60 127.0.0.1") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
+        using var running = System.Diagnostics.Process.Start(psi)!;
+        try
+        {
+            Assert.Throws<IOException>(() => File.Copy(System.IO.Path.Combine(r.Payload, "mcp", "Pec.Qc.Mcp.exe"), mcp, true));      // exactly the failure the user had
+            r.Make().Install(r.Payload, Only(), "0.2.0");
+            Assert.False(running.HasExited);                                                     // the running server was not killed
+            Assert.Equal("NEW MCP", File.ReadAllText(mcp));                                      // the new version is in place
+            var aside = Assert.Single(Directory.GetFiles(System.IO.Path.GetDirectoryName(mcp)!, "*" + Installer.AsideMarker + "*"));
+            Assert.Equal(0, Installer.CleanupAside(r.Paths.AppDir));                             // still in use: left alone
+            running.Kill(true); running.WaitForExit(10000);
+            Assert.Equal(1, Installer.CleanupAside(r.Paths.AppDir)); Assert.False(File.Exists(aside)); Assert.Equal("NEW MCP", File.ReadAllText(mcp));
+        }
+        finally { try { if (!running.HasExited) running.Kill(true); } catch (InvalidOperationException) { } }
+    }
+
+    [Fact]
+    public void A_file_that_is_not_locked_is_simply_overwritten_and_nothing_is_left_aside()
+    {
+        using var r = new Rig();
+        r.Make().Install(r.Payload, Only(), "0.1.0"); r.T.File("payload/mcp/Pec.Qc.Mcp.exe", "V2");
+        r.Make().Install(r.Payload, Only(), "0.2.0");
+        Assert.Empty(Directory.GetFiles(r.Paths.AppDir, "*" + Installer.AsideMarker + "*", SearchOption.AllDirectories));
+    }
+
     [Fact]
     public void An_incomplete_package_is_refused_before_anything_is_changed()
     {

@@ -101,6 +101,7 @@ public sealed class Installer
         version ??= Updates.CurrentVersion;
         var previous = ReadManifest();
         StopRunningApp();
+        CleanupAside(_p.AppDir);
         _log($"Installing version {version}: copying the app to {_p.AppDir}");
         CopyDirectory(payloadDir, _p.AppDir);
         var mcpExe = AssistantSetup.FindMcpExe(_p.AppDir)!;
@@ -201,7 +202,7 @@ public sealed class Installer
             }
             catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception) { }
         }
-        // the MCP server may still be held by Claude Code or Claude Desktop sessions: those are restarted by them on next use
+        // the MCP server may still be held by Claude Code or Claude Desktop sessions: they are not killed; CopyFile moves a locked file aside, and the session keeps using the old copy until it restarts
     }
 
     /// <summary>
@@ -299,7 +300,36 @@ public sealed class Installer
     {
         Directory.CreateDirectory(to);
         foreach (var d in Directory.GetDirectories(from, "*", SearchOption.AllDirectories)) Directory.CreateDirectory(Path.Combine(to, Path.GetRelativePath(from, d)));
-        foreach (var f in Directory.GetFiles(from, "*", SearchOption.AllDirectories)) File.Copy(f, Path.Combine(to, Path.GetRelativePath(from, f)), true);
+        foreach (var f in Directory.GetFiles(from, "*", SearchOption.AllDirectories)) CopyFile(f, Path.Combine(to, Path.GetRelativePath(from, f)));
+    }
+
+    public const string AsideMarker = ".old-";
+
+    /// <summary>
+    /// Copies a file over an existing one. A program that is running holds its files open (the MCP server is kept alive by Claude Code and Claude Desktop sessions, which this installer must not kill):
+    /// Windows does not allow overwriting such a file but does allow renaming it, so the old file is moved aside and the new one put in its place. The running program keeps the old copy until it ends;
+    /// the leftover is removed by <see cref="CleanupAside"/>.
+    /// </summary>
+    public static void CopyFile(string from, string to)
+    {
+        try { File.Copy(from, to, true); return; }
+        catch (Exception e) when ((e is IOException || e is UnauthorizedAccessException) && File.Exists(to)) { }
+        File.Move(to, to + AsideMarker + DateTime.Now.ToString("yyyyMMddHHmmssfff"));
+        File.Copy(from, to, true);
+    }
+
+    /// <summary>Deletes the files that <see cref="CopyFile"/> moved aside, as far as they are no longer in use. Returns how many were removed.</summary>
+    public static int CleanupAside(string folder)
+    {
+        var n = 0;
+        if (!Directory.Exists(folder)) return 0;
+        try
+        {
+            foreach (var f in Directory.EnumerateFiles(folder, "*" + AsideMarker + "*", SearchOption.AllDirectories))
+                try { File.Delete(f); n++; } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        return n;
     }
 
     private static void TryDelete(string dir) { try { if (Directory.Exists(dir)) Directory.Delete(dir, true); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
