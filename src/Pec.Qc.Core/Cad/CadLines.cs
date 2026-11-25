@@ -12,8 +12,7 @@ public static class CadLines
 
     public static DxfDrawing Drawing(string path)
     {
-        var dxf = Path.GetExtension(path).Equals(".dwg", StringComparison.OrdinalIgnoreCase) ? DwgConverter.ToDxf(path, Path.Combine(Settings.DataDirectory, "cad-cache")) : path;
-        return DxfReader.Read(dxf);
+        return CadOpen.Open(path).Drawing;
     }
 
     public static List<PidReader.RawLine> FromFile(string path) => From(Drawing(path));

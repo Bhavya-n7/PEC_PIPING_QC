@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.1.0 - first release candidate (Phases 0-4)
+- DWG files are read by a reader built into the product (no AutoCAD needed); AutoCAD's console is only a fallback.
 - P&ID and GA checks accept DXF and DWG drawings as well as PDFs.
 - CAD files: `cad_read` reads DXF (texts, attributes, layers, counts, line lengths) and DWG (converted through AutoCAD's console on a copy); NWD attachments are exported with model_export; skill `qc-engineer-mindset` (plan any task, open everything attached, cross-check, say what was not checked).
 - Script tools: when nothing does what the user asks, Claude writes a small C# tool, tests it, and publishes it for the QC lead's review; once approved every colleague can use it. By default the author's approval shares the tool at once and a tool may use any .NET library; settings `ScriptReview` = `lead` and `ScriptSandbox` = `strict` restore lead review and the sandbox rules. Tools run in a separate process with a time limit and are pinned by SHA-256. New tools `script_tool_find`, `script_tool_draft`, `script_tool_run`, `script_tool_publish`, `script_tool_pending`, `script_tool_review`; skill `qc-tool-building`. The MCP server is now shipped as a folder instead of one file.

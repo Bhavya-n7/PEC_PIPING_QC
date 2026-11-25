@@ -134,3 +134,64 @@ public class CadSheetTests
         Assert.Contains("1:50", s.Scale ?? ""); Assert.Equal("0", s.Revision);
     }
 }
+
+/// <summary>The DWG reader built into the product: no AutoCAD needed.</summary>
+[Collection("EnvVar")]
+public class DwgNativeTests
+{
+    private static string Data(string name)
+    {
+        for (var d = new DirectoryInfo(AppContext.BaseDirectory); d is not null; d = d.Parent)
+        {
+            var f = Path.Combine(d.FullName, "tests", "Pec.Qc.Tests", "data", name);
+            if (File.Exists(f)) return f;
+        }
+        throw new FileNotFoundException(name);
+    }
+
+    [Fact]
+    public void A_dwg_made_by_autocad_is_read_by_the_built_in_reader_with_the_same_content_as_its_dxf()
+    {
+        var o = Pec.Qc.Core.Cad.CadOpen.Open(Data("sample.dwg"));
+        Assert.Contains("built-in", o.How);
+        var d = o.Drawing;
+        Assert.Contains(d.Texts, t => t.Kind == "TEXT" && t.Text == "6\"-GH5100-28-GAS-4297-A1A" && t.Layer == "TAGS");
+        Assert.Equal("NOTE 1:\nALL WELDS 100% RT\ndesign Ø150 °", d.Texts.Single(t => t.Kind == "MTEXT").Text);
+        var valve = Assert.Single(d.Inserts); Assert.Equal("XV-1001", valve.Attributes["TAG"]); Assert.Equal("GATE 6in 150#", valve.Attributes["DESC"]);
+        Assert.Equal(2, d.EntityCounts.GetValueOrDefault("LINE")); Assert.Equal(6000, Math.Round(d.LineLengthByLayer["PIPE"]), 1);
+        Assert.Contains("PIPE", d.Layers); Assert.Contains("GATEVALVE", d.BlockDefinitions);
+    }
+
+    [Fact]
+    public void It_works_with_no_autocad_on_the_pc_and_the_original_file_is_untouched()
+    {
+        Environment.SetEnvironmentVariable("PEC_QC_ACCORE", @"C:\does\not\exist.exe");
+        try
+        {
+            var f = Path.Combine(Path.GetTempPath(), "pecqc-nat-" + Guid.NewGuid().ToString("N") + ".dwg"); File.Copy(Data("sample.dwg"), f);
+            var t = File.GetLastWriteTimeUtc(f); var len = new FileInfo(f).Length;
+            try { Assert.Contains("built-in", Pec.Qc.Core.Cad.CadOpen.Open(f).How); Assert.Equal(t, File.GetLastWriteTimeUtc(f)); Assert.Equal(len, new FileInfo(f).Length); }
+            finally { File.Delete(f); }
+        }
+        finally { Environment.SetEnvironmentVariable("PEC_QC_ACCORE", null); }
+    }
+
+    [Fact]
+    public void A_file_that_is_not_a_dwg_gives_a_clear_message_and_does_not_crash()
+    {
+        var f = Path.Combine(Path.GetTempPath(), "pecqc-bad-" + Guid.NewGuid().ToString("N") + ".dwg"); File.WriteAllText(f, "this is not a drawing at all");
+        try
+        {
+            var ex = Assert.ThrowsAny<Exception>(() => Pec.Qc.Core.Cad.CadOpen.Open(f));
+            Assert.True(ex is InvalidOperationException or InvalidDataException, ex.GetType().Name + ": " + ex.Message);
+        }
+        finally { File.Delete(f); }
+    }
+
+    [Fact]
+    public void A_dwg_pid_goes_through_the_pid_reader_without_autocad()
+    {
+        var s = Assert.Single(Pec.Qc.Core.Pid.PidReader.Read(Data("sample.dwg")));
+        Assert.Contains(s.Items, i => i.Kind == Pec.Qc.Core.Pid.PidKind.Tag && i.Text == "XV-1001");
+    }
+}

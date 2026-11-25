@@ -20,7 +20,7 @@ State the plan in a few lines: the steps, the files each step needs, what you al
 | PDF drawing or document | `pdf_read` for the text; look at the page too when layout matters (the Read tool shows images and PDFs) |
 | Screenshot / pasted image | look at it; say what you see before using it; read values digit by digit and say when something is hard to read |
 | Excel, Word, CSV | `file_read`, `excel_read`; check hidden sheets and merged headers |
-| DXF / DWG | `cad_read` (texts, attributes, layers, line lengths); a DWG needs AutoCAD on this PC |
+| DXF / DWG | `cad_read` (texts, attributes, layers, line lengths; DWG is read directly) |
 | Navisworks NWD / NWC / NWF | `model_export` then `model_summary` / `model_line` |
 | Anything else (PCF, IFC, STEP, DGN, XML, ZIP, laser scan) | look at the first bytes; many are text or zip archives and can be read; if no reader exists say exactly that, ask for an export, or build a tool (`qc-tool-building`) when it will be needed again |
 
