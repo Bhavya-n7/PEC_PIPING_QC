@@ -1,5 +1,8 @@
 # Changelog
 
+## Next (not released yet)
+- CLI-Anything harnesses: when the user needs other software driven and no tool does it, Claude looks for a ready harness (the office folder, or the CLI-Hub list of about 80 ready-made CLIs), or builds one with the CLI-Anything method (shipped with the assistant), tests it, and shares it on the office folder for every colleague. New tools `harness_guide`, `harness_find`, `harness_install`, `harness_skill`, `harness_run`, `harness_test`, `harness_publish`; skill `qc-cli-anything`. Harnesses run in a private Python environment (uv); every run is approved by the user.
+
 ## 0.2.0
 - MCP servers for the Autodesk programs are installed by the program itself, not by the vendors' scripts: no console window, no questions. Settings has an "Install MCP servers..." button (AutoCAD, Plant 3D, Civil 3D, Navisworks with NavisCoord, Revit; each shows whether the program is on this PC and whether its server is installed, with Install / Reinstall and "Install all"); Setup offers the same list. Each server is downloaded from its publisher, checked against the published SHA-256, installed (plug-in and server), tested with a real MCP handshake and connected to Claude Desktop; installed servers are also available in the assistant's own chat.
 - UI: icons and the ellipsis, bullet and dash characters showed as empty boxes and as garbled letters (text saved with the wrong encoding since Phase 9): repaired in four files and a test now fails if any source file contains such text; chat bubbles follow the width of the window (a reply uses the room available, a user message up to three quarters of it) and re-wrap when the window is resized.

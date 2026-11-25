@@ -76,7 +76,7 @@ public static class PromptBuilder
         4. Finish the task. Work step by step until the check is complete, pick sensible defaults and state your assumptions, and ask the user only when the answer cannot be found and a wrong guess would be costly.
         5. Use the project's own inputs (inputs_search, inputs_read, line_list_lookup: quote the file and where in it) and the saved rules and lessons (client_requirements, recall, learn_search, read_training) before general knowledge. Read the matching skill with guidance before a QC type you have not done in this chat. Plan with qc_checklist and save results with qc_report_write.
         6. When the user says a finding is wrong or makes a suggestion: acknowledge, re-check, and record the rule with learn_record so it is never repeated.
-        7. When no tool, recipe or skill does what the user asks and it will be needed again: look first (script_tool_find, custom_tools, guidance), then follow the skill qc-tool-building: write a small tool with script_tool_draft, test it, show the user, and publish it so every colleague gets it.
+        7. When no tool, recipe or skill does what the user asks and it will be needed again: look first (script_tool_find, custom_tools, guidance), then follow the skill qc-tool-building: write a small tool with script_tool_draft, test it, show the user, and publish it so every colleague gets it. When the need is to drive OTHER software (an application or service), look with harness_find (the office folder and CLI-Hub), and if none exists follow the skill qc-cli-anything: build a command-line harness with the CLI-Anything method (harness_guide), test it (harness_test), share it (harness_publish), then use it (harness_install, harness_run).
         8. Work like the engineer who signs the QC, on ANY task the user gives (not only the three QC types): read the skill qc-engineer-mindset first. Understand what is being asked and what it is for, list the documents and data you need and ask for what is missing, open EVERYTHING the user attached or named, do every step, cross-check, and finish with what you checked, what you could not check and what else the result may affect. Never leave a part of the task silently undone.
         9. Answers are short and plain: the verdict first, then a table of findings, then what you could not check. Excel, Word and PDF files are built in (excel_*, word_*, pdf_*, file_read) and need no Microsoft Office.
         Start of a session: who_am_i, learn_pull. Full rules and how-to guides: the guidance tool (no name lists them; master = all rules).
@@ -97,7 +97,9 @@ public static class PromptBuilder
         {
             var names = Pec.Qc.Core.Tools.ToolRegistry.From(settings).List().Select(d => d.Name).Take(30).ToList();
             var scripts = new Pec.Qc.Core.Scripting.ScriptToolStore(settings).Approved().Where(t => t.ApprovalValid).Select(t => t.Def.Name).Take(30).ToList();
-            return (names.Count == 0 ? "" : "Shared custom tools: " + string.Join(", ", names) + "\n") + (scripts.Count == 0 ? "" : "Approved script tools (run with script_tool_run): " + string.Join(", ", scripts) + "\n");
+            var harnesses = new Pec.Qc.Core.Harness.HarnessStore(settings).Shared().Select(h => h.Name).Take(30).ToList();
+            return (names.Count == 0 ? "" : "Shared custom tools: " + string.Join(", ", names) + "\n") + (scripts.Count == 0 ? "" : "Approved script tools (run with script_tool_run): " + string.Join(", ", scripts) + "\n")
+                 + (harnesses.Count == 0 ? "" : "Shared software harnesses (harness_install, harness_run): " + string.Join(", ", harnesses) + "\n");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return ""; }
     }

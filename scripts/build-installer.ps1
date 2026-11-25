@@ -52,6 +52,11 @@ if ($navisDir) {
 
 # the MCP servers for the Autodesk programs are installed by the program itself (Settings > Install MCP servers, and Setup): nothing is bundled here
 
+# the CLI-Anything method (Apache-2.0, vendored with its licence): the guide Claude follows to build command-line harnesses for other software (tool harness_guide)
+$caOut = Join-Path $stage 'app\cli-anything'; New-Item -ItemType Directory -Force $caOut | Out-Null
+Copy-Item "$root\third-party\cli-anything\*" $caOut -Recurse -Force
+foreach ($need in 'HARNESS.md', 'LICENSE', 'NOTICE.md', 'registry.json') { if (-not (Test-Path (Join-Path $caOut $need))) { throw "the package is missing cli-anything\$need" } }
+
 Write-Host '3/5 office defaults and documentation'
 foreach ($f in 'README.md', 'CHANGELOG.md') { if (Test-Path "$root\$f") { Copy-Item "$root\$f" "$stage\app" } }
 $cfg = Join-Path $root 'config.local.json'
