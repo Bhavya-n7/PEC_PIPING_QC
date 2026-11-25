@@ -33,7 +33,7 @@ Run `PecQcSetup.exe` (next to `payload.zip`). It checks Claude Code (required), 
 - **Lessons**: the QC lead reviews on the Knowledge page ("Lessons to review") weekly: approve true rules, reject wrong ones. **Team activity** shows who uses it and where it is corrected.
 - **Reports** are in `reports\<project>\` (Excel and Markdown), never overwritten.
 
-- **Tools written by Claude**: when Claude builds a tool, the QC lead sees it under `script_tool_pending` (ask Claude: "show tools waiting for review"). Read the code (what it reads, what it writes), look at the tests, then approve or reject with a reason. Approved tools are in `tools\scriptspproved\<name>` on the share: restrict write access there to leads and administrators. To withdraw a tool, delete its folder (administrator).
+- **Tools written by Claude**: by default the author approves and shares the tool at once. To require your review instead, set `ScriptReview` to `lead` (and `ScriptSandbox` to `strict` to forbid network, programs and direct file access). With `lead`, the QC lead sees it under `script_tool_pending` (ask Claude: "show tools waiting for review"). Read the code (what it reads, what it writes), look at the tests, then approve or reject with a reason. Approved tools are in `tools\scriptspproved\<name>` on the share: restrict write access there to leads and administrators. To withdraw a tool, delete its folder (administrator).
 
 ## When something goes wrong
 | Symptom | Look at |

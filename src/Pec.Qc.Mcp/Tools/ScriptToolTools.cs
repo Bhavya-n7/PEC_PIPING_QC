@@ -30,6 +30,8 @@ public static class ScriptToolTools
         return l.Where(Directory.Exists).ToList();
     }
 
+    private static bool Open() => Resolve.Settings().ScriptSandboxOpen;
+
     private static string OutDir(string name) => Path.Combine(Settings.DataDirectory, "script-out", name + "-" + DateTime.Now.ToString("yyyyMMdd-HHmmss"));
 
     private static object Describe(StoredScriptTool t, string where) => new
@@ -51,7 +53,7 @@ public static class ScriptToolTools
     }
 
     [McpServerTool(Name = "script_tool_draft", Destructive = true)]
-    [Description("BUILD a new tool when no skill, recipe or built-in tool does what the user asks (read the skill qc-tool-building first). You give the name, a description (when to use it), the parameters, the C# code and tests. The code is a C# script: arguments are in the Args dictionary (always text), files are read and written ONLY through the Qc object (Qc.ReadText, Qc.ReadLines, Qc.PdfText, Qc.ExcelRows, Qc.WriteText, Qc.WriteExcel, Qc.Log), the result is what the script returns (a string or an object that becomes JSON). It cannot use the network, start programs, use reflection, the environment or System.IO.File. Tests give arguments as plain TEXT (not file paths: they must run on any PC) and what the result must contain. apply=false only compiles and checks the rules and shows any problem with its line; apply=true asks the user to approve (they see the code), runs every test and saves the draft on this PC. Then show the user the test results.")]
+    [Description("BUILD a new tool when no skill, recipe or built-in tool does what the user asks (read the skill qc-tool-building first). You give the name, a description (when to use it), the parameters, the C# code and tests. The code is a C# script: arguments are in the Args dictionary (always text), files are read and written ONLY through the Qc object (Qc.ReadText, Qc.ReadLines, Qc.PdfText, Qc.ExcelRows, Qc.WriteText, Qc.WriteExcel, Qc.Log), the result is what the script returns (a string or an object that becomes JSON). In the default open mode it may use any .NET library (files, network, programs); in strict mode only the Qc object. Tests give arguments as plain TEXT (not file paths: they must run on any PC) and what the result must contain. apply=false only compiles and checks the rules and shows any problem with its line; apply=true asks the user to approve (they see the code), runs every test and saves the draft on this PC. Then show the user the test results.")]
     public static object Draft([Description("lowercase letters, digits and _, e.g. extract_valve_tags")] string name, [Description("One or two sentences: when to use this tool")] string description,
         [Description("JSON array: [{\"name\":\"text\",\"type\":\"string\",\"description\":\"...\",\"required\":true}]")] string parameters, [Description("The C# script")] string code,
         [Description("JSON array: [{\"name\":\"two numbers\",\"args\":{\"text\":\"1 2\"},\"expectContains\":\"3\"},{\"name\":\"bad input\",\"args\":{\"text\":\"x\"},\"expectError\":true}]")] string tests, bool apply = false)
@@ -65,14 +67,14 @@ public static class ScriptToolTools
         catch (JsonException e) { throw new McpException("The parameters or tests are not valid JSON: " + e.Message); }
         var problems = ScriptToolStore.Validate(def, Taken());
         if (problems.Count > 0) return new { saved = false, problems, next = "Fix these and call again." };
-        var check = ScriptEngine.Analyze(code);
+        var check = ScriptEngine.Analyze(code, Open());
         if (!check.Ok)
             return new { saved = false, compiles = check.Errors.Count == 0, errors = check.Errors, notAllowed = check.Violations.Select(v => new { v.Line, v.What }), next = "Fix the code (use only the Qc object for files; no network, programs, reflection or environment) and call again." };
         if (!apply) return new { saved = false, compiles = true, rulesOk = true, tests = def.Tests.Count, next = "The code compiles and follows the rules. Show the user what the tool will do, then call again with apply=true: the user approves, the tests run and the draft is saved on this PC." };
         var sha = ScriptToolStore.Sha256(code);
         var detail = $"Tool: {def.Name}\n{def.Description}\n\nCODE:\n{code}\n\nTESTS: {JsonSerializer.Serialize(def.Tests, Json)}";
         if (Resolve.NeedApproval("script_tool_draft", def.Name + "|" + sha, $"Run the tests of the new tool '{def.Name}' on this PC and save the draft", detail) is { } wait) return wait;
-        var results = ScriptEngine.RunTests(def, code, ReadableFolders(), OutDir(def.Name));
+        var results = ScriptEngine.RunTests(def, code, ReadableFolders(), OutDir(def.Name), Open());
         var draft = Store().SaveDraft(def, code, results);
         var all = results.All(r => r.Passed);
         return new
@@ -106,14 +108,14 @@ public static class ScriptToolTools
         if (!useDraft && !tool.ApprovalValid) throw new McpException($"The code of '{name}' is not the code that was approved (it was changed): it is not run. Tell the QC lead.");
         var a = ReadArgs(tool, args);
         if (useDraft && Resolve.NeedApproval("script_tool_run", name + "|" + ScriptToolStore.Sha256(tool.Code) + "|" + args, $"Run your draft tool '{name}' (not reviewed yet) on this PC", tool.Code) is { } wait) return wait;
-        var r = ScriptEngine.Execute(tool.Code, a, ReadableFolders(), OutDir(name), TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 1, 120)));
+        var r = ScriptEngine.Execute(tool.Code, a, ReadableFolders(), OutDir(name), TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 1, 120)), Open());
         if (!useDraft) Resolve.Audit("script_tool_run", name + "|" + tool.Approval!.CodeSha256, r.Ok ? "ok" : "failed");
         return new { ran = true, name, ok = r.Ok, result = r.Output, error = r.Error, logs = r.Logs, filesWritten = r.Files, seconds = Math.Round(r.Milliseconds / 1000.0, 1), approved = !useDraft,
             next = r.Ok ? "Give the user the result and the paths of any files written." : "Tell the user what failed. If it is a bug in the tool, fix it with script_tool_draft (a new draft) and publish the fix." };
     }
 
     [McpServerTool(Name = "script_tool_publish", Destructive = true)]
-    [Description("Send the user's tested draft to the shared folder for the QC lead's review, so that every colleague can use it once approved. The tests must all have passed. apply=false shows what would be sent; apply=true asks the user to approve and sends it. Tell the user the QC lead must approve it (script_tool_review) before others can run it.")]
+    [Description("Share the user's tested draft with every colleague. By default (ScriptReview=direct) the user's approval here makes it available at once; if the office set ScriptReview=lead it waits for the QC lead's review. The tests must all have passed. apply=false shows what would be sent; apply=true asks the user to approve and sends it. If the result says approved, colleagues can run it now; otherwise the QC lead must approve it (script_tool_review) first.")]
     public static object Publish([Description("The draft's name")] string name, bool apply = false)
     {
         var s = Resolve.Settings(); var store = new ScriptToolStore(s);
@@ -123,6 +125,14 @@ public static class ScriptToolTools
         if (!apply) return new { published = false, name, description = d.Def.Description, tests = d.Def.Tests.Count, wouldWriteTo = Path.Combine(store.PendingDir, Resolve.Who().FileKey, name), next = "Call again with apply=true to send it to the QC lead for review." };
         if (Resolve.NeedApproval("script_tool_publish", name + "|" + ScriptToolStore.Sha256(d.Code), $"Send the tool '{name}' to the shared folder for review", d.Code) is { } wait) return wait;
         var folder = store.Publish(d, Resolve.Who(), d.Results);
+        if (!s.ScriptReviewByLead)
+        {
+            // direct: the user who built and tested it has just approved it (they saw the code): it goes live for everyone now
+            var pend = store.PendingTool(Resolve.Who().FileKey, name) ?? throw new McpException("The tool was sent but could not be found again to approve it.");
+            store.Approve(pend, Resolve.Who().Display + " (author, direct)", d.Results);
+            var live = Resolve.Audit("script_tool_publish", name + "|" + ScriptToolStore.Sha256(d.Code), "approved directly by the author");
+            return new { published = true, approved = true, name, folder, audit = live, next = "Tell the user: the tool is now available to every colleague (script_tool_find, script_tool_run). It is new code that was tested only by its own tests." };
+        }
         var audit = Resolve.Audit("script_tool_publish", name + "|" + ScriptToolStore.Sha256(d.Code), "pending review");
         return new { published = true, name, folder, audit, next = "Tell the user: the QC lead will review the code and the tests (script_tool_pending / script_tool_review). When approved, every user can run it." };
     }
@@ -160,11 +170,11 @@ public static class ScriptToolTools
             return new { applied = true, rejected = true, audit = Resolve.Audit("script_tool_review", $"{name}|{sha}", "rejected: " + reason.Trim()) };
         }
         var problems = ScriptToolStore.Validate(p.Def, Taken().Except([p.Def.Name], StringComparer.OrdinalIgnoreCase).ToHashSet(StringComparer.OrdinalIgnoreCase));
-        var check = ScriptEngine.Analyze(p.Code);
+        var check = ScriptEngine.Analyze(p.Code, Open());
         if (problems.Count > 0 || !check.Ok) return new { applied = false, problems, errors = check.Errors, notAllowed = check.Violations.Select(v => new { v.Line, v.What }), next = "It cannot be approved as it is. Reject it with the reasons so that the author can fix it." };
         if (!apply) return new { applied = false, decision = "approve", name, author = p.Author, sha256 = sha, next = "Call again with apply=true: the user approves, the tests are run on this PC and, if all pass, the tool is available to everyone." };
         if (Resolve.NeedApproval("script_tool_review", $"{author}|{name}|{sha}", $"Approve the tool '{name}' (by {p.Author}) for every user", p.Code) is { } wait) return wait;
-        var results = ScriptEngine.RunTests(p.Def, p.Code, ReadableFolders(), OutDir(name));
+        var results = ScriptEngine.RunTests(p.Def, p.Code, ReadableFolders(), OutDir(name), Open());
         if (results.Any(r => !r.Passed)) return new { applied = false, testsPassed = false, results = results.Select(r => new { r.Name, r.Passed, r.Message }), next = "The tests do not pass on this PC, so the tool was not approved. Reject it with the reasons, or ask the author to fix the tests." };
         var approved = store.Approve(p, Resolve.Who().Display, results);
         var audit = Resolve.Audit("script_tool_review", $"{name}|{sha}", "approved");

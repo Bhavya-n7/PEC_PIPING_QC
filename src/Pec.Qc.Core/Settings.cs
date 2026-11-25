@@ -57,6 +57,14 @@ public sealed class Settings
     /// <summary>How often the user is asked before Claude saves something shared (skills, lessons, requirement packs, tools): task (once per task, the default) | strict (every write) | off (never ask).</summary>
     public string ApprovalMode { get; set; } = "task";
 
+    /// <summary>Tools Claude builds: "direct" (the default): the user who built and tested it approves it and it is shared at once | "lead": it waits for the QC lead's review.</summary>
+    public string ScriptReview { get; set; } = "direct";
+    [JsonIgnore] public bool ScriptReviewByLead => string.Equals(ScriptReview, "lead", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>What a tool Claude builds may use: "open" (the default): any .NET library (files, network, programs) | "strict": only the Qc object, no network, programs, reflection or direct files. Tools always run in their own process with a time limit.</summary>
+    public string ScriptSandbox { get; set; } = "open";
+    [JsonIgnore] public bool ScriptSandboxOpen => !string.Equals(ScriptSandbox, "strict", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>What Claude may do on its own in the app: full (files, web, commands: it builds what is missing and tests it; the default) | standard (files in its workspace and the web) | careful (the QC tools only).</summary>
     public string Autonomy { get; set; } = "full";
 

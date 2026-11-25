@@ -35,13 +35,13 @@ public class ScriptToolLifecycleTests : IDisposable
     private static readonly UserIdentity Ann = new("Ann Engineer", "E1", "PEC");
     private static readonly UserIdentity Bob = new("Bob Engineer", "E2", "PEC");
 
-    private Settings Pc(string name, UserIdentity who, string approval = "off")
+    private Settings Pc(string name, UserIdentity who, string approval = "off", bool direct = false)
     {
         var data = Path.Combine(_root, "pc-" + name); Directory.CreateDirectory(data);
         Environment.SetEnvironmentVariable("PEC_QC_DATA", data);
         Environment.SetEnvironmentVariable("PEC_QC_APPROVAL", approval); Environment.SetEnvironmentVariable("PEC_QC_APPROVAL_WAIT", "0");
         Environment.SetEnvironmentVariable(UserIdentity.NameVar, who.Name); Environment.SetEnvironmentVariable(UserIdentity.CodeVar, who.EmployeeCode); Environment.SetEnvironmentVariable(UserIdentity.CompanyVar, who.Company);
-        File.WriteAllText(Path.Combine(data, "settings.json"), JsonSerializer.Serialize(new Dictionary<string, string?> { ["UserName"] = who.Name, ["EmployeeCode"] = who.EmployeeCode, ["Company"] = who.Company, ["SharedRoot"] = _shared }));
+        File.WriteAllText(Path.Combine(data, "settings.json"), JsonSerializer.Serialize(new Dictionary<string, string?> { ["UserName"] = who.Name, ["EmployeeCode"] = who.EmployeeCode, ["Company"] = who.Company, ["SharedRoot"] = _shared, ["ScriptReview"] = direct ? "direct" : "lead", ["ScriptSandbox"] = direct ? "open" : "strict" }));
         return Settings.Load();
     }
 
@@ -159,6 +159,27 @@ public class ScriptToolLifecycleTests : IDisposable
         Assert.Contains("tighten the pattern", File.ReadAllText(rejectedFile));
     }
 
+    [Fact]
+    public void By_default_the_author_approves_directly_and_the_tool_may_use_files_and_programs_and_is_live_for_colleagues_at_once()
+    {
+        Pc("ann", Ann, direct: true);
+        var code = """
+            var f = Path.Combine(Path.GetTempPath(), "pecqc-open-" + Guid.NewGuid().ToString("N") + ".txt");
+            File.WriteAllText(f, Args["text"].ToUpperInvariant());
+            var back = File.ReadAllText(f); File.Delete(f);
+            var os = System.Environment.OSVersion.Platform.ToString();
+            return new { back, os };
+            """;
+        var tests = """[{"name":"upper","args":{"text":"abc"},"expectContains":"ABC"},{"name":"missing arg","args":{},"expectError":true}]""";
+        var d = JsonDoc(ScriptToolTools.Draft("shout_text", "Upper-cases text through a temp file", """[{"name":"text","required":true}]""", code, tests, apply: true));
+        Assert.True(d.GetProperty("saved").GetBoolean() && d.GetProperty("testsPassed").GetBoolean(), d.ToString());
+        var pub = JsonDoc(ScriptToolTools.Publish("shout_text", apply: true));
+        Assert.True(pub.GetProperty("approved").GetBoolean(), pub.ToString());
+        Pc("bob", Bob, direct: true);                                   // no lead involved
+        var run = JsonDoc(ScriptToolTools.Run("shout_text", """{"text":"hello"}"""));
+        Assert.True(run.GetProperty("ok").GetBoolean(), run.ToString()); Assert.Contains("HELLO", run.GetProperty("result").GetString());
+        Assert.Equal(0, new ScriptToolStore(Settings.Load()).Pending().Count);
+    }
     [Fact]
     public void Running_a_draft_or_publishing_asks_the_user_first_while_running_an_approved_tool_does_not()
     {
