@@ -94,13 +94,15 @@ public sealed class ClaudeCli
     public static readonly string[] AlwaysRefused = ["Bash(format:*)", "Bash(diskpart:*)", "Bash(mkfs:*)", "Bash(shutdown:*)"];
 
     public static List<string> ChatArguments(string mcpConfigFile, string systemPrompt, string? sessionId, string? model = null, bool replaceDefaultPrompt = true, string? effort = null,
-        string? readableFolder = null, ClaudeAutonomy autonomy = ClaudeAutonomy.Careful, string? workspace = null)
+        string? readableFolder = null, ClaudeAutonomy autonomy = ClaudeAutonomy.Careful, string? workspace = null, IEnumerable<string>? extraServers = null)
     {
         // What Claude may use besides the QC tools:
         //  Careful  - nothing, except Read limited by a path rule to the chat attachments folder
         //  Standard - read files, write and edit inside its own workspace, search the web, keep a to-do list
         //  Full     - also write anywhere the user can and run commands, so it can build what is missing and test it (only disk-wiping and shutdown commands stay refused)
         var allowed = new List<string> { $"mcp__{McpName}__*" };
+        // the MCP servers installed from Settings (AutoCAD, Navisworks, Revit ...): the chat may use them
+        if (extraServers is not null) allowed.AddRange(extraServers.Where(n => n.Length > 0 && n != McpName).Select(n => $"mcp__{n}__*"));
         string tools;
         switch (autonomy)
         {
@@ -128,13 +130,22 @@ public sealed class ClaudeCli
         return a;
     }
 
-    public static string WriteMcpConfig(string directory, string mcpExe, IDictionary<string, string>? env = null)
+    public static string WriteMcpConfig(string directory, string mcpExe, IDictionary<string, string>? env = null, IReadOnlyDictionary<string, McpInstall.McpServerEntry>? extra = null)
     {
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, "mcp.json");
         var server = new Dictionary<string, object> { ["command"] = mcpExe, ["args"] = Array.Empty<string>() };
         if (env is { Count: > 0 }) server["env"] = env;
-        File.WriteAllText(path, JsonSerializer.Serialize(new { mcpServers = new Dictionary<string, object> { [McpName] = server } }));
+        var all = new Dictionary<string, object>();
+        if (extra is not null)
+            foreach (var (name, e) in extra.Where(x => x.Key != McpName && x.Value.Command.Length > 0))
+            {
+                var d = new Dictionary<string, object> { ["command"] = e.Command, ["args"] = e.Args ?? [] };
+                if (e.Env is { Count: > 0 }) d["env"] = e.Env;
+                all[name] = d;
+            }
+        all[McpName] = server;
+        File.WriteAllText(path, JsonSerializer.Serialize(new { mcpServers = all }));
         return path;
     }
 
@@ -144,7 +155,7 @@ public sealed class ClaudeCli
         string? model = null, string? effort = null, ClaudeAutonomy autonomy = ClaudeAutonomy.Careful)
     {
         var psi = NewStartInfo(ChatArguments(mcpConfigFile, systemPrompt, sessionId, model, true, effort,
-            workingDirectory is null ? null : Path.Combine(workingDirectory, "attachments"), autonomy, workingDirectory), workingDirectory);
+            workingDirectory is null ? null : Path.Combine(workingDirectory, "attachments"), autonomy, workingDirectory, McpInstall.McpServerRegistry.ForDataDirectory().Load().Keys), workingDirectory);
         psi.RedirectStandardInput = true;
         if (env is not null) foreach (var (k, v) in env) psi.Environment[k] = v;
         using var p = Process.Start(psi) ?? throw new InvalidOperationException("Claude Code did not start.");

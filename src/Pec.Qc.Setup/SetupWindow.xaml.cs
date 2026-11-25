@@ -18,7 +18,7 @@ public partial class SetupWindow : Window
     /// <summary>Started by the app for an automatic update: install without questions (keeping the choices made at the first install), then start the new version.</summary>
     private readonly bool _auto = HasArg("/auto");
     private bool _done;
-    private readonly List<(Pec.Qc.Core.Setup.McpAddon Addon, System.Windows.Controls.CheckBox Box)> _addonBoxes = [];
+    private readonly List<(Pec.Qc.Core.McpInstall.McpProduct Addon, System.Windows.Controls.CheckBox Box)> _addonBoxes = [];
     private InstallFolders _defaults = FolderDefaults.For(null);
 
     private static bool HasArg(string a) => Environment.GetCommandLineArgs().Any(x => x.Equals(a, StringComparison.OrdinalIgnoreCase));
@@ -92,31 +92,29 @@ public partial class SetupWindow : Window
         _defaults = nd;
     }
 
-    /// <summary>The MCP servers of other products (AutoCAD, Civil 3D, Plant 3D, Navisworks, Revit): listed from the package, ticked when the program is on this PC.</summary>
+    /// <summary>The MCP servers of other products (AutoCAD, Plant 3D, Civil 3D, Navisworks, Revit): listed with whether the program is on this PC, ticked when it is. Installed by this program itself (no scripts, no console).</summary>
     private void LoadAddons()
     {
-        var addons = Pec.Qc.Core.Setup.McpAddons.LoadFromZip(_payloadZip);
-        if (addons.Count == 0) return;
-        foreach (var st in Pec.Qc.Core.Setup.McpAddons.Statuses(addons))
+        foreach (var st in Pec.Qc.Core.McpInstall.McpCatalog.Status(new Pec.Qc.Core.McpInstall.McpEnv()))
         {
             var box = new System.Windows.Controls.CheckBox
             {
-                IsChecked = st.Detected, Margin = new Thickness(0, 6, 0, 0),
+                IsChecked = st.HostFound && !st.Installed, IsEnabled = st.HostFound, Margin = new Thickness(0, 6, 0, 0),
                 Content = new System.Windows.Controls.TextBlock
                 {
                     TextWrapping = TextWrapping.Wrap,
                     Inlines =
                     {
-                        new System.Windows.Documents.Run(st.Addon.Title) { FontWeight = FontWeights.SemiBold },
-                        new System.Windows.Documents.Run(st.Detected ? "  (" + st.DetectedAs + " found)" : "  (program not found on this PC)") { Foreground = st.Detected ? Brushes.SeaGreen : Brushes.Gray },
+                        new System.Windows.Documents.Run(st.Product.Title) { FontWeight = FontWeights.SemiBold },
+                        new System.Windows.Documents.Run(st.Installed ? "  (already installed)" : st.HostFound ? "  (" + st.HostText + " found)" : "  (program not found on this PC)") { Foreground = st.HostFound ? Brushes.SeaGreen : Brushes.Gray },
                         new System.Windows.Documents.LineBreak(),
-                        new System.Windows.Documents.Run(st.Addon.Description + " Source: " + st.Addon.Source + ".") { Foreground = Brushes.Gray, FontSize = 12 },
+                        new System.Windows.Documents.Run(st.Product.Description + " Source: " + st.Product.Source + ".") { Foreground = Brushes.Gray, FontSize = 12 },
                     },
                 },
             };
-            System.Windows.Automation.AutomationProperties.SetAutomationId(box, "Addon_" + st.Addon.Id);
+            System.Windows.Automation.AutomationProperties.SetAutomationId(box, "Addon_" + st.Product.Id);
             AddonsPanel.Children.Add(box);
-            _addonBoxes.Add((st.Addon, box));
+            _addonBoxes.Add((st.Product, box));
         }
         AddonsCard.Visibility = Visibility.Visible;
     }
@@ -161,7 +159,7 @@ public partial class SetupWindow : Window
         {
             if (_uninstall)
             {
-                var addonsDone = Pec.Qc.Core.Setup.McpAddons.InstalledIds(Path.Combine(_paths.AppDir, Pec.Qc.Core.Setup.McpAddons.FolderName));
+                var addonsDone = Pec.Qc.Core.McpInstall.McpCatalog.Status(new Pec.Qc.Core.McpInstall.McpEnv()).Where(x => x.Installed).Select(x => x.Product.Title).ToList();
                 await Task.Run(() => inst.Uninstall());
                 Log("PEC QC Assistant was removed.");
                 if (addonsDone.Count > 0) Log("The MCP servers installed with it (" + string.Join(", ", addonsDone) + ") are separate products and were NOT removed: remove them from Claude's settings and from the Autodesk program's add-ins if you no longer want them.");
@@ -175,7 +173,6 @@ public partial class SetupWindow : Window
                 var installClaude = OptInstallClaude.IsChecked == true;      // read controls here, on the UI thread, not inside Task.Run
                 var opt = new InstallOptions(OptCode.IsChecked == true, OptDesktop.IsChecked == true, OptShortcut.IsChecked == true, OptSkills.IsChecked == true);
                 var chosenAddons = _addonBoxes.Where(b => b.Box.IsChecked == true).Select(b => b.Addon).ToList();
-                if (chosenAddons.Any(a => a.ClosesApps) && MessageBox.Show(this, "The installers you ticked for " + string.Join(", ", chosenAddons.Where(a => a.ClosesApps).Select(a => a.Title)) + " may close AutoCAD, Revit or Claude on this PC. Save your work now.\n\nContinue with these MCP servers? (No installs the QC tools only.)", "MCP servers", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) chosenAddons.Clear();
                 await Task.Run(() =>
                 {
                     var tmp = Path.Combine(Path.GetTempPath(), "pec-qc-setup");
@@ -198,12 +195,12 @@ public partial class SetupWindow : Window
                     var keep = Path.Combine(setupDir, Installer.SetupExe);
                     if (!string.Equals(Environment.ProcessPath, keep, StringComparison.OrdinalIgnoreCase)) File.Copy(Environment.ProcessPath!, keep, true);
                     Directory.Delete(tmp, true);
-                    foreach (var a in chosenAddons)       // one at a time, each in its own window; the scripts are checked against the release's manifest first
-                    {
-                        var r = Pec.Qc.Core.Setup.McpAddons.Run(Path.Combine(_paths.AppDir, Pec.Qc.Core.Setup.McpAddons.FolderName), a, s => Dispatcher.Invoke(() => Log(s)));
-                        Dispatcher.Invoke(() => Log(r.Message));
-                    }
                 });
+                foreach (var a in chosenAddons)       // one at a time, with the program's own installer: a step line and a percentage, no console window
+                {
+                    var r = await Pec.Qc.Core.McpInstall.McpCatalog.InstallAsync(a, new Pec.Qc.Core.McpInstall.McpEnv(), _ => { }, st => Dispatcher.Invoke(() => Log("  " + a.Title + ": " + st)), _ => { });
+                    Log((r.Ok ? "✓ " : "! ") + r.Message + (r.Ok ? "" : "  You can install it later: open the assistant, Settings, MCP servers.  Log: " + r.LogFile));
+                }
                 Log("Installed. Start \"PEC QC Assistant\" and sign in with your Claude account.");
                 RecordInstall(true, "installed");
                 ActionButton.Content = "Start the assistant";

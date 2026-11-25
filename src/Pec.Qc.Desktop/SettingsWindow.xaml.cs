@@ -53,6 +53,8 @@ public partial class SettingsWindow : Window
         RoleText.Text = who.IsComplete ? "Your role: " + QcRoles.Name(UserRegistry.RoleOf(_s, who)) + "  (an administrator changes roles)" : "";
     }
 
+    private void Mcp_Click(object sender, RoutedEventArgs e) => new McpWindow(this).ShowDialog();
+
     private void BrowseNavis_Click(object sender, RoutedEventArgs e) { Pick(NavisBox, "Navisworks Manage install folder"); RefreshStates(); }
 
     private void Pick(System.Windows.Controls.TextBox box, string title)

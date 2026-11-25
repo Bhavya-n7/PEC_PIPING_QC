@@ -42,7 +42,7 @@ public partial class MainWindow
         if (_mcpExe is null) return;
         var env = new Dictionary<string, string> { ["PEC_QC_APPROVAL"] = ApprovalGate.ModeToVariable(_settings.EffectiveApprovalMode), ["PEC_QC_DATA"] = Settings.DataDirectory };
         foreach (var kv in UserIdentity.FromSettings(_settings).ToEnvironment()) env[kv.Key] = kv.Value;
-        _mcpConfig = ClaudeCli.WriteMcpConfig(Path.Combine(Settings.DataDirectory, "claude"), _mcpExe, env);
+        _mcpConfig = ClaudeCli.WriteMcpConfig(Path.Combine(Settings.DataDirectory, "claude"), _mcpExe, env, Pec.Qc.Core.McpInstall.McpServerRegistry.ForDataDirectory().Load());
     }
 
     /// <summary>One line in the team's activity log: who asked what, what the assistant did, how it ended.</summary>
@@ -255,6 +255,7 @@ public partial class MainWindow
     private async Task SendAsync(ChatSession s, string text, IReadOnlyList<Attachment>? files = null)
     {
         if (s.Busy || _claude is null || _mcpConfig is null) return;
+        WriteMcpConfigFile();                      // servers installed from Settings since the last message are included
         files ??= [];
         Say(s, Role.User, files.Count == 0 ? text : text + "\n\nAttached: " + string.Join(", ", files.Select(f => f.Name)));
         s.TurnTools = 0; s.TurnErrors = 0; s.TurnBuilt = false; s.TurnLearned = false; s.TurnSavedTool = false; s.Reflecting = false;

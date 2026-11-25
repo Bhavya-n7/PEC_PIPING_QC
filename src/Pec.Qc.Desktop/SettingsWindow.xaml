@@ -58,6 +58,14 @@
 
                 <Border Style="{StaticResource Card}" Margin="0,0,0,18">
                     <StackPanel>
+                        <TextBlock Text="MCP servers for Autodesk programs" Style="{StaticResource H2}"/>
+                        <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,2,0,10" Text="Let Claude work with AutoCAD, Plant 3D, Civil 3D, Navisworks and Revit while you have them open. The assistant installs each one itself: it downloads the server from its publisher, checks it, installs the plug-in and connects Claude. Nothing to type, nothing to run. Come back here whenever you want another one."/>
+                        <Button x:Name="McpButton" Content="Install MCP servers..." Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Padding="20,9" Click="Mcp_Click" AutomationProperties.AutomationId="Settings_InstallMcp"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" Margin="0,0,0,18">
+                    <StackPanel>
                         <TextBlock Text="Navisworks" Style="{StaticResource H2}"/>
                         <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,2,0,10" Text="Isometric and GA checks read the 3D model through your own Navisworks Manage (a background run on a copy; your model is never changed). The assistant works with the licence you have, education or commercial: which one is allowed for company work is your company's responsibility. Leave empty to find it automatically."/>
                         <TextBlock Text="Navisworks Manage folder" Margin="0,0,0,4"/>

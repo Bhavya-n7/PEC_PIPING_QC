@@ -39,7 +39,7 @@
                     <DockPanel>
                         <TextBlock x:Name="VersionText" DockPanel.Dock="Right" Text="v-" Foreground="{StaticResource SidebarMuted}" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/>
                         <StackPanel Orientation="Horizontal">
-                            <Button Style="{StaticResource GhostButton}" Click="Settings_Click" Padding="9,6" ToolTip="Settings"><TextBlock Text="&#xE713;" Style="{StaticResource Icon}" FontSize="15" Foreground="{StaticResource SidebarInk}"/></Button>
+                            <Button Style="{StaticResource GhostButton}" Click="Settings_Click" Padding="9,6" ToolTip="Settings" AutomationProperties.Name="Settings"><TextBlock Text="&#xE713;" Style="{StaticResource Icon}" FontSize="15" Foreground="{StaticResource SidebarInk}"/></Button>
                             <Button Style="{StaticResource GhostButton}" Click="MasterPrompt_Click" Padding="9,6" ToolTip="Master prompt: the rules file that guides every request"><TextBlock Text="&#xE70F;" Style="{StaticResource Icon}" FontSize="15" Foreground="{StaticResource SidebarInk}"/></Button>
                             <Button x:Name="SignOutButton" Style="{StaticResource GhostButton}" Click="SignOut_Click" Visibility="Collapsed" Padding="9,6" ToolTip="Sign out of Claude"><TextBlock Text="&#xE7E8;" Style="{StaticResource Icon}" FontSize="15" Foreground="{StaticResource SidebarMuted}"/></Button>
                         </StackPanel>
