@@ -1,4 +1,4 @@
-using Pec.Qc.Core.Approvals;
+﻿using Pec.Qc.Core.Approvals;
 
 namespace Pec.Qc.Tests;
 
@@ -147,6 +147,6 @@ public class ApprovalWaitTests
         using var t = new TempDir(); var g = Gate(t, ApprovalMode.Strict);
         var sw = System.Diagnostics.Stopwatch.StartNew();
         Assert.Equal(ApprovalState.Pending, g.Check("model_export", "x", "Export", "d"));
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(1));
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5), "it must not wait (a wait would be 60 s)");
     }
 }

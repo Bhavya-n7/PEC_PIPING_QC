@@ -21,6 +21,8 @@ For the release manager and the QC lead. Server names and paths are not in this 
 ## The release key (once)
 `scripts\new-release-key.ps1` makes the key pair. The private key stays on the release manager's PC, readable by that user only: **back it up** (if it is lost, every PC must be reinstalled with a new public key). Put the public key in `config.local.json` as `update_public_key`, the path of the private key as `update_signing_key`, rebuild, and install that build once by hand on each PC. Never put the private key on the share or in the repository.
 
+> **Testing warning:** an installed build uses the shared folder from its shipped defaults (the company share). Do not start an installed test build on a PC that can reach the share unless you mean to: the first person who registers there becomes its administrator. Give a test its own settings with an empty shared folder, or unplug it.
+
 ## First install on a PC
 Run `PecQcSetup.exe` (next to `payload.zip`). It checks Claude Code (required), Navisworks (optional: needed for model export, isometric and GA checks) and the shared folder, installs per user (no administrator rights), registers the tools with Claude Code and Claude Desktop with approvals on, and adds a Start-menu shortcut. The first start asks for name, employee code and company. Setup can uninstall and leaves nothing behind.
 
