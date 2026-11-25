@@ -50,6 +50,14 @@ if ($navisDir) {
   foreach ($need in 'Pec.Qc.NavisRunner.exe', 'PecQcExporter.dll') { if (-not (Test-Path (Join-Path $navisOut $need))) { throw "the package is missing navis\$need" } }
 } else { Write-Warning 'Navisworks Manage is not installed on this PC: the package has NO model export tool (model_export will say so). Build on a PC with Navisworks to include it.' }
 
+# the team's MCP-server installers for the Autodesk programs: bundled unmodified, with a manifest that pins each script's SHA-256 (Setup refuses a changed script)
+Write-Host '2c/5 MCP server installers for AutoCAD, Civil 3D, Plant 3D, Navisworks and Revit'
+& powershell -NoProfile -ExecutionPolicy Bypass -File "$PSScriptRoot\make-mcp-addon-manifest.ps1" | Out-Null
+if ($LASTEXITCODE) { throw 'the MCP installer manifest could not be written' }
+$addonOut = Join-Path $stage 'app\mcp-addons'; New-Item -ItemType Directory -Force $addonOut | Out-Null
+Copy-Item "$root\third-party\mcp-installers\*" $addonOut -Include *.cmd, manifest.json
+foreach ($need in 'manifest.json', 'Install-NavisworksMCP_2.cmd', 'Install-AutoCADMCP_2.cmd', 'Install-Civil3DMCP_3.cmd', 'PlantMCP.cmd', 'RevitMCP.cmd') { if (-not (Test-Path (Join-Path $addonOut $need))) { throw "the package is missing mcp-addons\$need" } }
+
 Write-Host '3/5 office defaults and documentation'
 foreach ($f in 'README.md', 'CHANGELOG.md') { if (Test-Path "$root\$f") { Copy-Item "$root\$f" "$stage\app" } }
 $cfg = Join-Path $root 'config.local.json'

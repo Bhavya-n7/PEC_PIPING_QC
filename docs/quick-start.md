@@ -11,3 +11,4 @@
 6. **Save the report** when asked: it needs your approval and goes to `reports\<project>\`.
 7. **Correct the assistant** when it is wrong and say why, with the source. It records a lesson; the QC lead approves the true ones for the whole team.
 8. **Do not type passwords or keys.** What you type and the files it reads for you are processed by Claude (Anthropic), so only use it on material PEC allows to be processed that way.
+9. **Setup can also install MCP servers for AutoCAD, Civil 3D, Plant 3D, Navisworks and Revit.** It ticks the ones whose program is on your PC; each runs its own installer in a separate window (it may close the program and Claude: save your work first).

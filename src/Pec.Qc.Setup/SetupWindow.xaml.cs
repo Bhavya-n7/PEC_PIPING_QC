@@ -18,6 +18,7 @@ public partial class SetupWindow : Window
     /// <summary>Started by the app for an automatic update: install without questions (keeping the choices made at the first install), then start the new version.</summary>
     private readonly bool _auto = HasArg("/auto");
     private bool _done;
+    private readonly List<(Pec.Qc.Core.Setup.McpAddon Addon, System.Windows.Controls.CheckBox Box)> _addonBoxes = [];
     private InstallFolders _defaults = FolderDefaults.For(null);
 
     private static bool HasArg(string a) => Environment.GetCommandLineArgs().Any(x => x.Equals(a, StringComparison.OrdinalIgnoreCase));
@@ -41,7 +42,7 @@ public partial class SetupWindow : Window
         }
         else
         {
-            if (_auto) ApplyChoicesOfTheFirstInstall();
+            if (_auto) ApplyChoicesOfTheFirstInstall(); else LoadAddons();
             Loaded += async (_, _) =>
             {
                 ShowChecks();
@@ -91,6 +92,35 @@ public partial class SetupWindow : Window
         _defaults = nd;
     }
 
+    /// <summary>The MCP servers of other products (AutoCAD, Civil 3D, Plant 3D, Navisworks, Revit): listed from the package, ticked when the program is on this PC.</summary>
+    private void LoadAddons()
+    {
+        var addons = Pec.Qc.Core.Setup.McpAddons.LoadFromZip(_payloadZip);
+        if (addons.Count == 0) return;
+        foreach (var st in Pec.Qc.Core.Setup.McpAddons.Statuses(addons))
+        {
+            var box = new System.Windows.Controls.CheckBox
+            {
+                IsChecked = st.Detected, Margin = new Thickness(0, 6, 0, 0),
+                Content = new System.Windows.Controls.TextBlock
+                {
+                    TextWrapping = TextWrapping.Wrap,
+                    Inlines =
+                    {
+                        new System.Windows.Documents.Run(st.Addon.Title) { FontWeight = FontWeights.SemiBold },
+                        new System.Windows.Documents.Run(st.Detected ? "  (" + st.DetectedAs + " found)" : "  (program not found on this PC)") { Foreground = st.Detected ? Brushes.SeaGreen : Brushes.Gray },
+                        new System.Windows.Documents.LineBreak(),
+                        new System.Windows.Documents.Run(st.Addon.Description + " Source: " + st.Addon.Source + ".") { Foreground = Brushes.Gray, FontSize = 12 },
+                    },
+                },
+            };
+            System.Windows.Automation.AutomationProperties.SetAutomationId(box, "Addon_" + st.Addon.Id);
+            AddonsPanel.Children.Add(box);
+            _addonBoxes.Add((st.Addon, box));
+        }
+        AddonsCard.Visibility = Visibility.Visible;
+    }
+
     private void ShowChecks()
     {
         var rows = new Installer(_paths).Check(null, SharedBox.Text.Trim())
@@ -131,8 +161,10 @@ public partial class SetupWindow : Window
         {
             if (_uninstall)
             {
+                var addonsDone = Pec.Qc.Core.Setup.McpAddons.InstalledIds(Path.Combine(_paths.AppDir, Pec.Qc.Core.Setup.McpAddons.FolderName));
                 await Task.Run(() => inst.Uninstall());
                 Log("PEC QC Assistant was removed.");
+                if (addonsDone.Count > 0) Log("The MCP servers installed with it (" + string.Join(", ", addonsDone) + ") are separate products and were NOT removed: remove them from Claude's settings and from the Autodesk program's add-ins if you no longer want them.");
                 ActionButton.Content = "Finish";
             }
             else
@@ -142,6 +174,8 @@ public partial class SetupWindow : Window
                     Directory.CreateDirectory(d);          // fails early (and clearly) when a shared drive is not reachable
                 var installClaude = OptInstallClaude.IsChecked == true;      // read controls here, on the UI thread, not inside Task.Run
                 var opt = new InstallOptions(OptCode.IsChecked == true, OptDesktop.IsChecked == true, OptShortcut.IsChecked == true, OptSkills.IsChecked == true);
+                var chosenAddons = _addonBoxes.Where(b => b.Box.IsChecked == true).Select(b => b.Addon).ToList();
+                if (chosenAddons.Any(a => a.ClosesApps) && MessageBox.Show(this, "The installers you ticked for " + string.Join(", ", chosenAddons.Where(a => a.ClosesApps).Select(a => a.Title)) + " may close AutoCAD, Revit or Claude on this PC. Save your work now.\n\nContinue with these MCP servers? (No installs the QC tools only.)", "MCP servers", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) chosenAddons.Clear();
                 await Task.Run(() =>
                 {
                     var tmp = Path.Combine(Path.GetTempPath(), "pec-qc-setup");
@@ -164,6 +198,11 @@ public partial class SetupWindow : Window
                     var keep = Path.Combine(setupDir, Installer.SetupExe);
                     if (!string.Equals(Environment.ProcessPath, keep, StringComparison.OrdinalIgnoreCase)) File.Copy(Environment.ProcessPath!, keep, true);
                     Directory.Delete(tmp, true);
+                    foreach (var a in chosenAddons)       // one at a time, each in its own window; the scripts are checked against the release's manifest first
+                    {
+                        var r = Pec.Qc.Core.Setup.McpAddons.Run(Path.Combine(_paths.AppDir, Pec.Qc.Core.Setup.McpAddons.FolderName), a, s => Dispatcher.Invoke(() => Log(s)));
+                        Dispatcher.Invoke(() => Log(r.Message));
+                    }
                 });
                 Log("Installed. Start \"PEC QC Assistant\" and sign in with your Claude account.");
                 ActionButton.Content = "Start the assistant";

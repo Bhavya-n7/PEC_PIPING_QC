@@ -45,3 +45,6 @@ Run `PecQcSetup.exe` (next to `payload.zip`). It checks Claude Code (required), 
 
 ## Backups
 Back up the shared folder (it holds everything the team has built) and the release private key. The per-user data folder holds only settings and local copies.
+
+## MCP servers for the Autodesk programs
+Setup also offers the team's installers for the MCP servers of AutoCAD, Civil 3D, Plant 3D, Navisworks and Revit (`third-party\mcp-installers`, see its README). To add or change one: put the script in that folder, run `scripts\make-mcp-addon-manifest.ps1` (set its detection rule and source in that script), rebuild. Setup only runs a script whose SHA-256 is in the manifest of the release. These servers are separate products: they are not tested or security-reviewed with the QC Assistant, a new version of a script means a new release, and the unclear licence of the Revit server should be settled before wide use.

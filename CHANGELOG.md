@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.1.0 - first release candidate (Phases 0-4)
+- Setup offers the MCP servers for AutoCAD, Civil 3D, Plant 3D, Navisworks and Revit: the team's installers are bundled unmodified, checked against a manifest of SHA-256 hashes, ticked when the program is found, run in their own windows, skipped in automatic updates.
 - Approvals: requests are shown from the start of the app (not after the Claude sign-in check) and a tool now waits up to 60 seconds for the user's click instead of answering "waiting" at once; a denial is reported as such.
 - Phase 10 (hardening): updates are authenticated (the release file is signed with the company's release key and the SHA-256 of Setup and the payload are checked before anything runs); replacing an existing file with the Office tools asks the user; the activity report and the knowledge pack conversion need the QC lead role; more credential shapes are scrubbed; unreviewed lessons are shown as hints; the activity log can be limited to metadata; scripts for the release key and for code signing; security review, runbook and quick start.
 - Phase 9: self-learning. Offline queue (lessons and activity kept while the share is away are sent back), lesson curation (learn_pending, learn_review, generated LEARNED.md) and an activity summary, with review and activity windows for the QC lead; the activity report is now lead / admin only.

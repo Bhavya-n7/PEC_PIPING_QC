@@ -81,6 +81,15 @@
                             <CheckBox x:Name="OptShortcut" Content="Add a Start-menu shortcut" IsChecked="True" Margin="0,5"/>
                         </StackPanel>
                     </Border>
+                    <!-- MCP servers of other products -->
+                    <Border x:Name="AddonsCard" Style="{StaticResource Card}" Margin="0,0,0,18" Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock Text="MCP SERVERS FOR YOUR AUTODESK PROGRAMS" Style="{StaticResource Eyebrow}" Margin="0,0,0,6"/>
+                            <TextBlock Text="Lets Claude work inside AutoCAD, Civil 3D, Plant 3D, Navisworks and Revit. Each one runs its own installer in a separate window after the QC tools are installed: it downloads the server from its publisher, installs a plug-in into the program, registers the server with Claude, and may ask you questions and close the program and Claude (save your work first). Ticked = the program was found on this PC."
+                                       Style="{StaticResource Muted}" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,8"/>
+                            <StackPanel x:Name="AddonsPanel"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <!-- progress log -->
