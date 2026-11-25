@@ -28,7 +28,7 @@ if (Test-Path $cfg) {
 
 # files that are in git or staged (deleted ones skipped); binary files skipped
 $files = @(git ls-files) + @(git diff --cached --name-only --diff-filter=AM) | Sort-Object -Unique | Where-Object { $_ -and (Test-Path $_) }
-$allow = @('LICENSE', 'scripts/leak-scan.ps1')
+$allow = @('LICENSE', 'scripts/leak-scan.ps1', 'third-party/cli-anything/PUBLISHING.md')   # the last one is the upstream project's file (placeholder e-mail addresses), kept unmodified
 $hits = 0
 foreach ($f in $files) {
   if ($allow -contains ($f -replace '\\', '/')) { continue }
