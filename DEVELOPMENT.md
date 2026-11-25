@@ -250,6 +250,15 @@ Rules: seed missing files only, never overwrite shared files (people edit them);
 
 ---
 
+### Extra: any file, any task, like the QC engineer - STARTED (CAD files and the engineer's way of working done; more readers open)
+- [x] **What users can attach** (already there): paste a screenshot (Ctrl+V), drag and drop, the Attach button; images, PDF, Word, Excel, CSV, text, DXF, DWG, NWD / NWC, laser scans and other files are copied to the workspace and Claude is told what each is and how to open it (up to 10 files, 30 MB each)
+- [x] **DXF and DWG are now read** (`cad_read`): texts (TEXT, MTEXT with formatting resolved, attributes, dimension texts) with layer and position, block inserts with their attributes (tags, descriptions), entity counts by type and layer, layers, block definitions, line length per layer, extents, units. A DWG is converted on a copy through AutoCAD's console (`accoreconsole.exe`, found under Program Files\Autodesk, or PEC_QC_ACCORE); without AutoCAD the message tells the user to export DXF or PDF. Verified: DXF made by a CAD library with known content (all values asserted), a real AutoCAD round trip (DXF -> DWG -> DXF: the same tags and texts), a truncated file, a binary DXF refused, over MCP stdio. 6 tests
+- [x] **NWD / NWC attachments** are exported with `model_export` (modelFile = the attached path); unfamiliar formats are looked at and read if they are text or archives, otherwise Claude says so and asks for an export or builds a tool
+- [x] **Skill `qc-engineer-mindset`** and prompt rule 8: for any task, understand the purpose, plan, list and ask for missing documents, open every attached file, do every item, cross-check between documents, look for what is absent, state what was not checked and what else it may affect. (Behaviour of the model under this skill is NOT measured: it is guidance, not a guarantee)
+- [ ] **Not done**: reading the graphics of a DXF/DWG (geometry is only summarised; dimensions without override text have no number as text), 3D DWG, PCF / IFC / STEP / DGN / laser scan readers (a script tool can be built when needed), OCR for scanned drawings and screenshots beyond what Claude's own vision reads, checks that use `cad_read` output against the model or P&ID (a DXF GA or P&ID check like ga_check / pid_compare), and a test with a real client DWG (only generated and AutoCAD-converted samples were used)
+
+---
+
 ## 5. Working agreement (every phase)
 1. Update this file (tick boxes honestly: built **and** checked), `README.md` and `CHANGELOG.md`.
 2. `dotnet build` 0 errors, `dotnet test` green.

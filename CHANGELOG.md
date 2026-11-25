@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.1.0 - first release candidate (Phases 0-4)
+- CAD files: `cad_read` reads DXF (texts, attributes, layers, counts, line lengths) and DWG (converted through AutoCAD's console on a copy); NWD attachments are exported with model_export; skill `qc-engineer-mindset` (plan any task, open everything attached, cross-check, say what was not checked).
 - Script tools: when nothing does what the user asks, Claude writes a small C# tool, tests it, and publishes it for the QC lead's review; once approved every colleague can use it. By default the author's approval shares the tool at once and a tool may use any .NET library; settings `ScriptReview` = `lead` and `ScriptSandbox` = `strict` restore lead review and the sandbox rules. Tools run in a separate process with a time limit and are pinned by SHA-256. New tools `script_tool_find`, `script_tool_draft`, `script_tool_run`, `script_tool_publish`, `script_tool_pending`, `script_tool_review`; skill `qc-tool-building`. The MCP server is now shipped as a folder instead of one file.
 - Phase 11 (pilot kit): finding_feedback, pilot_time, pilot_metrics and pilot_compare (the assistant's saved report against the QC team's own hand list), install results logged by Setup, pilot plan, rollout procedure and a hand-list template.
 - Setup offers the MCP servers for AutoCAD, Civil 3D, Plant 3D, Navisworks and Revit: the team's installers are bundled unmodified, checked against a manifest of SHA-256 hashes, ticked when the program is found, run in their own windows, skipped in automatic updates.

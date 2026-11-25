@@ -109,11 +109,11 @@ public static class ChatAttachments
         AttachKind.Pdf => "a PDF (drawing or document): read it with the Read tool, or pdf_read for the text of every page (on a drawing that text carries the tags, line numbers and notes)",
         AttachKind.Office => "read it with the file_read tool (text of the Word, Excel, PowerPoint or CSV file); to read cells or change a workbook or document use excel_inspect, excel_read, excel_edit, word_edit",
         AttachKind.Text => "a text file: read it with the Read tool",
-        AttachKind.Cad => "a CAD drawing (DXF or DWG): it cannot be read here; tell the user to export it to PDF and attach that",
-        AttachKind.Scan => "a laser scan: it cannot be read here; say so",
-        AttachKind.Navis => "a Navisworks model: it cannot be read as an attachment; the model is read by its path from the project card, so tell the user to set it there",
+        AttachKind.Cad => "a CAD drawing (DXF or DWG): read its texts, tags, attributes, layers and line lengths with cad_read (a DWG is converted through AutoCAD on this PC); for how it looks, ask for a PDF export",
+        AttachKind.Scan => "a laser scan (point cloud): there is no reader for it; say so, and ask what the user needs from it (a coordinate, a distance, a clash) so that it can be done another way, for example by a script tool or from the model",
+        AttachKind.Navis => "a Navisworks model: export it to data with model_export (modelFile = this path; apply=true after the user agrees; it runs Navisworks headless on a copy and takes 30 s to some minutes), then model_summary / model_line; or set it as the project's model so every check uses it",
         AttachKind.OldOffice => "an old Office format: convert it (for example with Excel/Word through PowerShell COM, or LibreOffice) to xlsx, docx or pptx and read that; only if nothing works, tell the user to save it in the new format",
-        _ => "an unknown file type: try the Read tool, and tell the user if it cannot be read",
+        _ => "an unfamiliar file type: look at its first bytes (Read, or a script tool) to see what it is; many engineering formats are text or zip archives and can be read; if it cannot be read with the tools here, say exactly that and ask for an export (PDF, DXF, Excel)",
     };
 
     /// <summary>The text added to the user's message so Claude knows what was attached and how to open each file.</summary>
