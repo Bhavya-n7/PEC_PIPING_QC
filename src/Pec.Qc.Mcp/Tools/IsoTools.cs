@@ -18,7 +18,7 @@ public static partial class IsoTools
         try
         {
             var (lib, _) = Resolve.Inputs(project);
-            var hit = Directory.EnumerateFiles(lib.Folder, "*.pdf", SearchOption.AllDirectories).FirstOrDefault(p => Path.GetFileName(p).Equals(Path.GetFileName(f), StringComparison.OrdinalIgnoreCase));
+            var hit = Directory.EnumerateFiles(lib.Folder, "*.*", SearchOption.AllDirectories).Where(p => Path.GetExtension(p).ToLowerInvariant() is ".pdf" or ".dxf" or ".dwg").FirstOrDefault(p => Path.GetFileName(p).Equals(Path.GetFileName(f), StringComparison.OrdinalIgnoreCase));
             if (hit is not null) return hit;
         }
         catch (McpException) { }

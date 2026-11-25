@@ -220,5 +220,5 @@ public class PidTests : IDisposable
     }
 
     [Fact]
-    public void Only_pdf_files_are_read() => Assert.Throws<InvalidOperationException>(() => PidReader.Read(Path.Combine(_dir, "x.dwg")));
+    public void Only_pdf_files_are_read() => Assert.Throws<InvalidOperationException>(() => PidReader.Read(Path.Combine(_dir, "x.xyz")));
 }

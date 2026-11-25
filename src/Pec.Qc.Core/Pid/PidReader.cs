@@ -54,7 +54,8 @@ public static partial class PidReader
 
     public static List<PidSheet> Read(string pdfPath)
     {
-        if (!string.Equals(Path.GetExtension(pdfPath), ".pdf", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Only .pdf files are read.");
+        if (Cad.CadLines.IsCad(pdfPath)) return [ReadLines(Cad.CadLines.FromFile(pdfPath), pdfPath, 1)];
+        if (!string.Equals(Path.GetExtension(pdfPath), ".pdf", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Only .pdf, .dxf and .dwg files are read.");
         using var doc = PdfDocument.Open(pdfPath);
         var sheets = new List<PidSheet>();
         for (var i = 1; i <= doc.NumberOfPages; i++) sheets.Add(ReadPage(doc.GetPage(i), pdfPath, i));
@@ -65,8 +66,13 @@ public static partial class PidReader
 
     public static PidSheet ReadPage(Page page, string file, int pageNo)
     {
+        return ReadLines(TextLines(page), file, pageNo);
+    }
+
+    /// <summary>The same reading from text lines that are already placed on the reference sheet (a PDF page, or a DXF / DWG through <see cref="Cad.CadLines"/>).</summary>
+    public static PidSheet ReadLines(List<RawLine> lines, string file, int pageNo)
+    {
         var sh = new PidSheet { File = Path.GetFileName(file), Page = pageNo };
-        var lines = TextLines(page);
         if (lines.Count == 0) { sh.Warnings.Add("the page has no text layer (a scan or an image): it cannot be read"); return sh; }
         lines = JoinBubbles(lines, out var bubbleTags);
         sh.Items.AddRange(bubbleTags);

@@ -25,3 +25,6 @@ build/
 *.user
 .vs/
 TestResults/
+
+# AutoCAD console crash reports
+ErrorReports/

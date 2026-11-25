@@ -87,3 +87,50 @@ public class CadTests : IDisposable
         Assert.Contains("save it as DXF or PDF", ex.Message);
     }
 }
+
+/// <summary>The P&amp;ID comparison and the GA reading work on DXF drawings through the same readers as for PDFs.</summary>
+public class CadSheetTests
+{
+    private static string Data(string name)
+    {
+        for (var d = new DirectoryInfo(AppContext.BaseDirectory); d is not null; d = d.Parent)
+        {
+            var f = Path.Combine(d.FullName, "tests", "Pec.Qc.Tests", "data", name);
+            if (File.Exists(f)) return f;
+        }
+        throw new FileNotFoundException(name);
+    }
+
+    [Fact]
+    public void A_dxf_pid_is_read_into_lines_tags_notes_with_zones_and_a_rotated_line_is_vertical()
+    {
+        var s = Assert.Single(Pec.Qc.Core.Pid.PidReader.Read(Data("pid-original.dxf")));
+        Assert.Contains(s.Items, i => i.Kind == Pec.Qc.Core.Pid.PidKind.Line && i.Text == "6\"-GH-5100-28-GAS-A1A");
+        Assert.Contains(s.Items, i => i.Kind == Pec.Qc.Core.Pid.PidKind.Line && i.Text == "4\"-PW-220-04-WTR-A1A" && i.Vertical);
+        Assert.Equal(new[] { "E-101", "P-301A", "V-201" }, s.Items.Where(i => i.Kind == Pec.Qc.Core.Pid.PidKind.Tag).Select(i => i.Text).Order().ToArray());
+        Assert.Contains(s.Items, i => i.Kind == Pec.Qc.Core.Pid.PidKind.Note && i.Text.Contains("FULL BORE"));
+    }
+
+    [Fact]
+    public void A_redrawn_dxf_pid_is_compared_with_the_original_a_missing_tag_and_a_changed_line_are_FAIL_and_an_extra_tag_is_REVIEW()
+    {
+        var orig = Pec.Qc.Core.Pid.PidReader.Read(Data("pid-original.dxf")); var red = Pec.Qc.Core.Pid.PidReader.Read(Data("pid-redrawn.dxf"));
+        var f = new Pec.Qc.Core.Pid.PidComparer(new Pec.Qc.Core.Pid.PidOptions()).Compare(orig, red);
+        var fails = f.Where(x => x.Status == Pec.Qc.Core.Findings.FindingStatus.Fail).ToList();
+        Assert.Contains(fails, x => x.SourceValue.Contains("E-101"));
+        Assert.Contains(fails, x => x.SourceValue.Contains("CD-101") && x.DrawingValue.Contains("CD-102"));
+        Assert.DoesNotContain(fails, x => x.SourceValue.Contains("V-201") || x.SourceValue.Contains("P-301A") || x.SourceValue.Contains("FULL BORE"));
+        Assert.Contains(f, x => x.Status == Pec.Qc.Core.Findings.FindingStatus.Review && (x.DrawingValue.Contains("X-999") || x.Message.Contains("X-999")));
+        // the same drawing against itself: nothing fails
+        Assert.DoesNotContain(new Pec.Qc.Core.Pid.PidComparer(new Pec.Qc.Core.Pid.PidOptions()).Compare(orig, Pec.Qc.Core.Pid.PidReader.Read(Data("pid-original.dxf"))), x => x.Status == Pec.Qc.Core.Findings.FindingStatus.Fail);
+    }
+
+    [Fact]
+    public void A_dxf_ga_gives_equipment_tags_coordinates_elevation_scale_and_revision()
+    {
+        var s = Assert.Single(Pec.Qc.Core.Ga.GaReader.Read(Data("ga-sample.dxf")));
+        Assert.Equal(new[] { "60D302", "60E301" }, s.Tags.Select(t => t.Text).Order().ToArray());
+        Assert.Equal(2, s.Coords.Count); Assert.Contains(s.Coords, c => c.E == 1576982 && c.N == 3253683 && c.U == 32224);
+        Assert.Contains("1:50", s.Scale ?? ""); Assert.Equal("0", s.Revision);
+    }
+}

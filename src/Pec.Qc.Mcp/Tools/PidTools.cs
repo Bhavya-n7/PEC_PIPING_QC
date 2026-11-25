@@ -18,7 +18,7 @@ public static class PidTools
     private static string Path_(string file, string? project) => IsoTools.ResolvePdf(file, project);
 
     [McpServerTool(Name = "pid_read", ReadOnly = true)]
-    [Description("Read a P&ID PDF's text layer as data: per sheet the line numbers, tags (equipment, instruments, valves), short labels and notes, each with its zone on the sheet (A1..H6). Horizontal and rotated text is read. Symbols and line routing are not. A sheet with no text (a scan) is reported as unreadable. Use it to answer a question about one drawing or to see what pid_compare was given.")]
+    [Description("Read a P&ID's text as data (a PDF's text layer, or the texts of a DXF / DWG, a DWG through AutoCAD): per sheet the line numbers, tags (equipment, instruments, valves), short labels and notes, each with its zone on the sheet (A1..H6). Horizontal and rotated text is read. Symbols and line routing are not. A sheet with no text (a scan) is reported as unreadable. Use it to answer a question about one drawing or to see what pid_compare was given.")]
     public static object Read([Description("Path of the P&ID PDF, or its file name inside the project's inputs folder")] string file, [Description("Project name; empty = the active project")] string? project = null,
         [Description("Only this sheet (page number); empty = all")] int? sheet = null, [Description("Also list the notes' and labels' full text (long)")] bool full = false)
     {
@@ -47,7 +47,7 @@ public static class PidTools
     {
         var (lib, _) = Resolve.Inputs(project);
         var stem = Path.GetFileNameWithoutExtension(redrawnPath).ToUpperInvariant();
-        var docs = lib.Inventory().Where(d => d.Kind == InputKind.Pid && d.Ext == ".pdf").ToList();
+        var docs = lib.Inventory().Where(d => d.Kind == InputKind.Pid && d.Ext is ".pdf" or ".dxf" or ".dwg").ToList();
         var tokens = Regex.Split(stem, @"[\s_]+").Where(t => t.Length >= 10).ToList();
         var hits = docs.Where(d =>
         {
@@ -61,7 +61,7 @@ public static class PidTools
     }
 
     [McpServerTool(Name = "pid_compare", Destructive = true)]
-    [Description("Check a REDRAWN P&ID against the client's ORIGINAL P&ID, sheet by sheet, on their text: every line number, tag (equipment, instrument, valve), label and note on the original must be on the redrawn drawing. FAIL = missing or changed (both texts shown, look-alike characters such as 0/O named, with the sheet and zone on the original); REVIEW = only on the redrawn drawing, an item in a different place, or a sheet with no text; the graphics (symbols, routing, flow arrows, line types) are NOT compared and are always listed as not verified. The original is found in the project's inputs (pid folder) by file name unless you give it. apply=false only shows the result; apply=true asks the user to approve and saves the Excel + Markdown report.")]
+    [Description("Check a REDRAWN P&ID against the client's ORIGINAL P&ID (PDF, DXF or DWG, each side either), sheet by sheet, on their text: every line number, tag (equipment, instrument, valve), label and note on the original must be on the redrawn drawing. FAIL = missing or changed (both texts shown, look-alike characters such as 0/O named, with the sheet and zone on the original); REVIEW = only on the redrawn drawing, an item in a different place, or a sheet with no text; the graphics (symbols, routing, flow arrows, line types) are NOT compared and are always listed as not verified. The original is found in the project's inputs (pid folder) by file name unless you give it. apply=false only shows the result; apply=true asks the user to approve and saves the Excel + Markdown report.")]
     public static object Compare([Description("The redrawn P&ID PDF: path, or file name inside the project's inputs folder")] string redrawn, [Description("The client's original P&ID PDF; empty = find it in the project's pid inputs")] string? original = null,
         [Description("Project name; empty = the active project")] string? project = null, [Description("An item that moved more than this many points (A3 = 1190 x 842) is a REVIEW; default 30")] double moveTolerance = 30,
         [Description("Also list what matched (long)")] bool includeOk = false, [Description("true = save the report (asks the user to approve)")] bool apply = false)

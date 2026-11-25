@@ -75,7 +75,8 @@ public static partial class GaReader
 
     public static List<GaSheet> Read(string pdfPath)
     {
-        if (!string.Equals(Path.GetExtension(pdfPath), ".pdf", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Only .pdf files are read.");
+        if (Cad.CadLines.IsCad(pdfPath)) return [ReadLines(Cad.CadLines.FromFile(pdfPath), pdfPath, 1)];
+        if (!string.Equals(Path.GetExtension(pdfPath), ".pdf", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Only .pdf, .dxf and .dwg files are read.");
         using var doc = PdfDocument.Open(pdfPath);
         var sheets = new List<GaSheet>();
         for (var i = 1; i <= doc.NumberOfPages; i++) sheets.Add(ReadLines(PidReader.TextLines(doc.GetPage(i)), pdfPath, i));

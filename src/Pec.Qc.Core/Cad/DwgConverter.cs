@@ -34,7 +34,7 @@ public static class DwgConverter
             if (File.Exists(dxf)) File.Delete(dxf);
             var scr = Path.Combine(work, "run.scr");
             File.WriteAllText(scr, "FILEDIA 0\r\n_.DXFOUT \"" + dxf + "\" 16\r\n_.QUIT _Y\r\n");
-            var psi = new ProcessStartInfo(exe) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            var psi = new ProcessStartInfo(exe) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = work };
             psi.ArgumentList.Add("/i"); psi.ArgumentList.Add(copy); psi.ArgumentList.Add("/s"); psi.ArgumentList.Add(scr); psi.ArgumentList.Add("/l"); psi.ArgumentList.Add("en-US");
             using var p = Process.Start(psi) ?? throw new InvalidOperationException("AutoCAD's console did not start.");
             var so = p.StandardOutput.ReadToEndAsync(); var se = p.StandardError.ReadToEndAsync();

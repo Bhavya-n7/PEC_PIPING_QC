@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace Pec.Qc.Core.Cad;
 
-public sealed record DxfText(string Layer, string Text, double X, double Y, double Height, string Kind);
+public sealed record DxfText(string Layer, string Text, double X, double Y, double Height, string Kind, double Rotation = 0);
 public sealed record DxfBlockUse(string Block, string Layer, double X, double Y, Dictionary<string, string> Attributes);
 public sealed record DxfDrawing(string Version, string Units, double[] Extents, Dictionary<string, int> EntityCounts, Dictionary<string, int> EntitiesByLayer,
     Dictionary<string, double> LineLengthByLayer, List<string> Layers, List<string> BlockDefinitions, List<DxfText> Texts, List<DxfBlockUse> Inserts, List<string> Warnings);
@@ -63,11 +63,11 @@ public static class DxfReader
                         case "LINE":
                             d.LineLengthByLayer[layer] = d.LineLengthByLayer.GetValueOrDefault(layer) + Math.Sqrt(Math.Pow(N(11) - x, 2) + Math.Pow(N(21) - y, 2) + Math.Pow(N(31) - N(30), 2));
                             Extend(x, y); Extend(N(11), N(21)); break;
-                        case "TEXT": if (P(1).Length > 0) d.Texts.Add(new DxfText(layer, Clean(P(1)), x, y, N(40), "TEXT")); Extend(x, y); break;
+                        case "TEXT": if (P(1).Length > 0) d.Texts.Add(new DxfText(layer, Clean(P(1)), x, y, N(40), "TEXT", N(50))); Extend(x, y); break;
                         case "MTEXT":
-                            d.Texts.Add(new DxfText(layer, Clean(string.Concat(props.Where(p => p.Code == 3).Select(p => p.Value)) + P(1)), x, y, N(40), "MTEXT")); Extend(x, y); break;
+                            d.Texts.Add(new DxfText(layer, Clean(string.Concat(props.Where(p => p.Code == 3).Select(p => p.Value)) + P(1)), x, y, N(40), "MTEXT", N(50))); Extend(x, y); break;
                         case "ATTRIB" or "ATTDEF":
-                            if (P(1).Length > 0) d.Texts.Add(new DxfText(layer, Clean(P(1)), x, y, N(40), type == "ATTRIB" ? "ATTRIB:" + P(2) : "ATTDEF:" + P(2))); break;
+                            if (P(1).Length > 0) d.Texts.Add(new DxfText(layer, Clean(P(1)), x, y, N(40), type == "ATTRIB" ? "ATTRIB:" + P(2) : "ATTDEF:" + P(2), N(50))); break;
                         case "DIMENSION": if (P(1).Length > 0) d.Texts.Add(new DxfText(layer, Clean(P(1)), N(11), N(21), 0, "DIMENSION")); else d.Warnings.Add("A dimension has its measured value only (no override text): the number is not in the file as text."); break;
                         case "INSERT":
                         {

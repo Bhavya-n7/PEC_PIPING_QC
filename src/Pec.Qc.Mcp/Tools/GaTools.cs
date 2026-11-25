@@ -16,7 +16,7 @@ namespace Pec.Qc.Mcp.Tools;
 public static class GaTools
 {
     [McpServerTool(Name = "ga_read", ReadOnly = true)]
-    [Description("Read a general arrangement (GA) drawing PDF's text layer: per sheet the equipment tags with their place, the E/N/U coordinate labels (converted to mm), the elevations, the scale, revision, whether a north arrow is there as text, and the number of notes. Dimensions and symbols are not read. A sheet with no text (a scan) is reported as unreadable. Use it to answer a question about the drawing or to see what ga_check was given.")]
+    [Description("Read a general arrangement (GA) drawing's text (a PDF's text layer, or the texts of a DXF / DWG): per sheet the equipment tags with their place, the E/N/U coordinate labels (converted to mm), the elevations, the scale, revision, whether a north arrow is there as text, and the number of notes. Dimensions and symbols are not read. A sheet with no text (a scan) is reported as unreadable. Use it to answer a question about the drawing or to see what ga_check was given.")]
     public static object Read([Description("Path of the GA PDF, or its file name inside the project's inputs folder")] string file, [Description("Project name; empty = the active project")] string? project = null, [Description("Only this sheet (page number)")] int? sheet = null)
     {
         var path = IsoTools.ResolvePdf(file, project);
