@@ -1,6 +1,6 @@
 # Changelog
 
-## Next (not released yet)
+## 0.3.0
 - CLI-Anything harnesses: when the user needs other software driven and no tool does it, Claude looks for a ready harness (the office folder, or the CLI-Hub list of about 80 ready-made CLIs), or builds one with the CLI-Anything method (shipped with the assistant), tests it, and shares it on the office folder for every colleague. New tools `harness_guide`, `harness_find`, `harness_install`, `harness_skill`, `harness_run`, `harness_test`, `harness_publish`; skill `qc-cli-anything`. Harnesses run in a private Python environment (uv); every run is approved by the user.
 
 ## 0.2.0

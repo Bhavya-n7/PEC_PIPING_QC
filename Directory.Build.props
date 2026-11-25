@@ -1,7 +1,7 @@
 <Project>
   <!-- One version for the whole product. Change it here (and add a line to CHANGELOG.md) for every release. -->
   <PropertyGroup>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <AssemblyVersion>$(Version).0</AssemblyVersion>
     <FileVersion>$(Version).0</FileVersion>
     <Company>Petrocon Engineers and Consultants</Company>
