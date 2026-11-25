@@ -36,6 +36,12 @@ The share is used with: create, overwrite and append allowed for users; delete d
 - `audit\`, `activity\`: append / create for everyone; read for QC leads and administrators only (read-only for the rest).
 - `models\`, `reports\`, `projects\`: create / overwrite for everyone, as now.
 
+## Tools written by Claude and shared (script tools)
+- **What it is**: C# scripts written by Claude at a user's request, shared through the QC lead. They are code from a model, run on the engineers' PCs: treat them like macros.
+- **Controls** (in order of weight): (1) the user approves the code before the first run of a draft (approval mode task / strict); (2) the QC lead reads the code and re-runs the author's tests before approving; (3) the approved code is pinned by SHA-256, changed code is never run; (4) a rules filter refuses network, processes, reflection, registry, environment, `System.IO.File/Directory`, native code, `dynamic` and extra libraries (tested: 14 kinds refused, mutation-checked); (5) files only through the `Qc` object (given files and project inputs only; writes limited to text-like extensions in one folder); (6) own process with a time limit, killed with its children.
+- **Residual risk**: the filter is a policy check on the compiled code, **not a hard sandbox**; the process runs with the user's rights and could use a gap in the filter. Anyone with write access to `tools\scriptspproved` can replace code, but then the hash no longer matches and the tool is refused; they could also rewrite the hash file, so keep that folder write-restricted to the QC lead and administrators (same share advice as above). The review only protects if the lead actually reads the code.
+- Not done: running tools in an OS-level sandbox (AppContainer / job object with no file access), signing approvals with a key.
+
 ## What is NOT covered
 - A penetration test, and a review of the Claude Code CLI or of the MCP SDK. Dependencies: `dotnet list package --vulnerable --include-transitive` reported no known vulnerable package on the day of the build; the build no longer hides the NuGet advisory warnings (`NU1902` / `NU1903`), so a new advisory shows up as a warning. Run it again before each release.
 - SmartScreen reputation, other antivirus products, an install on a PC that has no .NET, no Claude Code and no Navisworks (no clean-PC / sandbox machine was available; the package was run from an unzipped folder instead).

@@ -31,10 +31,10 @@ Write-Host '1/5 publish the assistant app'
 dotnet publish "$root\src\Pec.Qc.Desktop" -c Release -r win-x64 --self-contained $vp -o "$stage\app" | Out-Null
 if ($LASTEXITCODE) { throw 'publish of the app failed' }
 
-Write-Host '2/5 publish the MCP server (single file)'
+Write-Host '2/5 publish the MCP server (a folder: the tool compiler needs the framework files)'
 $mcpDir = Join-Path $stage 'app\mcp'
 if (Test-Path $mcpDir) { Remove-Item $mcpDir -Recurse -Force }
-dotnet publish "$root\src\Pec.Qc.Mcp" -c Release -r win-x64 --self-contained -p:PublishSingleFile=true $vp -o $mcpDir | Out-Null
+dotnet publish "$root\src\Pec.Qc.Mcp" -c Release -r win-x64 --self-contained -p:PublishSingleFile=false $vp -o $mcpDir | Out-Null
 if ($LASTEXITCODE) { throw 'publish of the MCP server failed' }
 Get-ChildItem $mcpDir -Include *.pdb -Recurse | Remove-Item -Force
 foreach ($need in 'mcp\Pec.Qc.Mcp.exe', 'skills', 'prompts', 'help\help.md') { if (-not (Test-Path (Join-Path "$stage\app" $need))) { throw "the package is missing $need" } }

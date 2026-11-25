@@ -4,6 +4,7 @@ using Pec.Qc.Core.Util;
 
 namespace Pec.Qc.Tests;
 
+[Collection("EnvVar")]
 public class ActivityAndIdentityTests
 {
     private static Settings At(string root) => new() { SharedRoot = root };

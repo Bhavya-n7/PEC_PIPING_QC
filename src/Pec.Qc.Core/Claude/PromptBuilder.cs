@@ -76,6 +76,7 @@ public static class PromptBuilder
         4. Finish the task. Work step by step until the check is complete, pick sensible defaults and state your assumptions, and ask the user only when the answer cannot be found and a wrong guess would be costly.
         5. Use the project's own inputs (inputs_search, inputs_read, line_list_lookup: quote the file and where in it) and the saved rules and lessons (client_requirements, recall, learn_search, read_training) before general knowledge. Read the matching skill with guidance before a QC type you have not done in this chat. Plan with qc_checklist and save results with qc_report_write.
         6. When the user says a finding is wrong or makes a suggestion: acknowledge, re-check, and record the rule with learn_record so it is never repeated.
+        7. When no tool, recipe or skill does what the user asks and it will be needed again: look first (script_tool_find, custom_tools, guidance), then follow the skill qc-tool-building: write a small tool with script_tool_draft, test it, show the user, and publish it for the QC lead's review so every colleague gets it.
         7. Answers are short and plain: the verdict first, then a table of findings, then what you could not check. Excel, Word and PDF files are built in (excel_*, word_*, pdf_*, file_read) and need no Microsoft Office.
         Start of a session: who_am_i, learn_pull. Full rules and how-to guides: the guidance tool (no name lists them; master = all rules).
         """;
@@ -94,7 +95,8 @@ public static class PromptBuilder
         try
         {
             var names = Pec.Qc.Core.Tools.ToolRegistry.From(settings).List().Select(d => d.Name).Take(30).ToList();
-            return names.Count == 0 ? "" : "Shared custom tools: " + string.Join(", ", names) + "\n";
+            var scripts = new Pec.Qc.Core.Scripting.ScriptToolStore(settings).Approved().Where(t => t.ApprovalValid).Select(t => t.Def.Name).Take(30).ToList();
+            return (names.Count == 0 ? "" : "Shared custom tools: " + string.Join(", ", names) + "\n") + (scripts.Count == 0 ? "" : "Approved script tools (run with script_tool_run): " + string.Join(", ", scripts) + "\n");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return ""; }
     }

@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.1.0 - first release candidate (Phases 0-4)
+- Script tools: when nothing does what the user asks, Claude writes a small C# tool, tests it, and publishes it for the QC lead's review; once approved every colleague can use it. Tools run in a separate process with a time limit, cannot use the network, programs, reflection or arbitrary files, and are pinned by SHA-256. New tools `script_tool_find`, `script_tool_draft`, `script_tool_run`, `script_tool_publish`, `script_tool_pending`, `script_tool_review`; skill `qc-tool-building`. The MCP server is now shipped as a folder instead of one file.
 - Phase 11 (pilot kit): finding_feedback, pilot_time, pilot_metrics and pilot_compare (the assistant's saved report against the QC team's own hand list), install results logged by Setup, pilot plan, rollout procedure and a hand-list template.
 - Setup offers the MCP servers for AutoCAD, Civil 3D, Plant 3D, Navisworks and Revit: the team's installers are bundled unmodified, checked against a manifest of SHA-256 hashes, ticked when the program is found, run in their own windows, skipped in automatic updates.
 - Approvals: requests are shown from the start of the app (not after the Claude sign-in check) and a tool now waits up to 60 seconds for the user's click instead of answering "waiting" at once; a denial is reported as such.

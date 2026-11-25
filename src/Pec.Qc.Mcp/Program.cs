@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
@@ -13,6 +13,9 @@ if (args.Length > 0 && args[0] == "init-shared")
     Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new { st.Reachable, st.Writable, st.Counts }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
     return st.Reachable && st.Writable ? 0 : 1;
 }
+
+// a tool written by Claude runs in its own process of this program (see Scripting\ScriptEngine): checked, run, result on stdout, then gone
+if (args.Length >= 2 && args[0] == "--run-script") return Pec.Qc.Mcp.Scripting.ScriptEngine.ChildMain(args[1]);
 
 var builder = Host.CreateApplicationBuilder(args);
 

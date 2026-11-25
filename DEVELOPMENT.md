@@ -240,6 +240,15 @@ Rules: seed missing files only, never overwrite shared files (people edit them);
 
 ---
 
+### Extra: Claude builds, tests and shares its own tools - DONE (verified on this PC; not yet used by real engineers)
+- [x] **Script tools**: when no tool, recipe or skill does what the user asks, the assistant (skill `qc-tool-building`, prompt rule 7) looks first (`script_tool_find`, `custom_tools`, `guidance`), then writes a small C# script with `script_tool_draft` (plan first; with approval it compiles, checks the rules and runs the author's tests), `script_tool_run` (draft by the author; approved tool by anyone), `script_tool_publish` (tests must pass), and the QC lead reviews with `script_tool_pending` / `script_tool_review` (sees the code and SHA-256, tests re-run on the lead's PC, approve or reject with a reason). Approved tools live in `tools\scriptspproved\<name>` on the share, with the approval and the code hash; every colleague's Claude is told they exist
+- [x] **Limits of a tool**: Roslyn scripting, curated references only (no network, process, reflection, registry, environment, `System.IO.File/Directory`, native code, `dynamic`, `#r`); files only through the `Qc` object (read the files given as arguments and the project's inputs / models / reports; write .txt .csv .json .md .tsv .xlsx into one output folder, 2 MB); runs in a **separate process** with a time limit (30 s default, 1-120) that is killed with its children; changed approved code is never run (hash pinned)
+- [x] **Tests**: 23 engine tests (allowed code, 14 refused kinds, limits of `Qc`, compile errors with line, exceptions, own process, endless loop stopped, test pass / fail semantics) and 5 lifecycle tests (draft -> publish -> lead approves -> another PC runs it; tampered code refused; failing tool not published; rule-breaking / no tests / built-in name refused; rejection with reason; approval before a draft runs). Mutation checks: hash check removed -> 1 failure; lead role gate lowered -> 1 failure; policy disabled -> 11 failures. All caught
+- [x] **Packaged build**: the MCP server is now published as a folder (not one file: Roslyn needs the framework libraries as files; 246 files, about 116 MB); the packaged server, driven over MCP stdio, compiled a tool, ran its tests, ran it (about 2.8 s per run, a new process each time) and refused a tool that used `System.IO.File`
+- [ ] **Not verified**: used by real engineers; the policy filter is defence in depth, **not a hard sandbox** (the child process runs as the user): the real controls are the user's approval before a draft runs, the QC lead's review of the code before sharing, the hash pin and the `Qc` limits. A reviewer who does not read the code defeats it. Setup / auto-update size and speed with the larger MCP folder not measured on a real update; the real share has no `tools\scripts` yet and no administrator / lead to approve (see Phase 10)
+
+---
+
 ## 5. Working agreement (every phase)
 1. Update this file (tick boxes honestly: built **and** checked), `README.md` and `CHANGELOG.md`.
 2. `dotnet build` 0 errors, `dotnet test` green.
