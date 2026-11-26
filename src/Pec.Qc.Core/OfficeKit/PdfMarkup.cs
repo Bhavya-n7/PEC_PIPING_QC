@@ -24,6 +24,49 @@ public static class PdfMarkup
         public bool Overlaps(Box o) => X0 < o.X1 && o.X0 < X1 && Y0 < o.Y1 && o.Y0 < Y1;
     }
 
+
+    /// <summary>The page as it is DISPLAYED (rotation applied, origin bottom left). Everything the tools say and take is in this space; annotations are written back in the page's own space.</summary>
+    public sealed class Geo
+    {
+        public readonly double X0, Y0, W, H; public readonly int Rot; public readonly double Dw, Dh;
+        /// <summary>Annotation scale: text, line weights and clouds follow the sheet (1 = A3; an A0 sheet gets about 2.8 times larger marks so they read as well on a screen).</summary>
+        public double K => Math.Clamp(Math.Max(Dw, Dh) / 1191.0, 0.6, 4.0);
+        public Geo(UglyToad.PdfPig.Content.Page page)
+        {
+            var mb = page.MediaBox.Bounds; X0 = Math.Min(mb.Left, mb.Right); Y0 = Math.Min(mb.Bottom, mb.Top); W = Math.Abs(mb.Right - mb.Left); H = Math.Abs(mb.Top - mb.Bottom);
+            Rot = ((page.Rotation.Value % 360) + 360) % 360; (Dw, Dh) = Rot is 90 or 270 ? (H, W) : (W, H);
+        }
+        public (double X, double Y) ToDisp(double ux, double uy)
+        {
+            ux -= X0; uy -= Y0;
+            return Rot switch { 90 => (uy, W - ux), 180 => (W - ux, H - uy), 270 => (H - uy, ux), _ => (ux, uy) };
+        }
+        public (double X, double Y) ToUser(double dx, double dy)
+        {
+            var (x, y) = Rot switch { 90 => (W - dy, dx), 180 => (W - dx, H - dy), 270 => (dy, H - dx), _ => (dx, dy) };
+            return (x + X0, y + Y0);
+        }
+        /// <summary>PdfPig reports what is ON the page (text, lines, images) already in the displayed orientation: no rotation to apply, only the box to normalise.</summary>
+        public Box DispBox(UglyToad.PdfPig.Core.PdfRectangle r)
+        {
+            var xs = new[] { r.BottomLeft.X, r.TopRight.X, r.TopLeft.X, r.BottomRight.X }; var ys = new[] { r.BottomLeft.Y, r.TopRight.Y, r.TopLeft.Y, r.BottomRight.Y };
+            return new Box(xs.Min(), ys.Min(), xs.Max(), ys.Max());
+        }
+        public Box UserRect(Box d)
+        {
+            var pts = new[] { ToUser(d.X0, d.Y0), ToUser(d.X1, d.Y1), ToUser(d.X0, d.Y1), ToUser(d.X1, d.Y0) };
+            return new Box(pts.Min(p => p.X), pts.Min(p => p.Y), pts.Max(p => p.X), pts.Max(p => p.Y));
+        }
+        /// <summary>The Form /Matrix that takes the display-space drawing of an annotation into the page's own space.</summary>
+        public double[] Matrix() => Rot switch
+        {
+            90 => new[] { 0.0, 1, -1, 0, X0 + W, Y0 },
+            180 => new[] { -1.0, 0, 0, -1, X0 + W, Y0 + H },
+            270 => new[] { 0.0, -1, 1, 0, X0, Y0 + H },
+            _ => new[] { 1.0, 0, 0, 1, X0, Y0 },
+        };
+    }
+
     public sealed record Hit(int Page, string Text, Box Box);
 
     static readonly Dictionary<string, double[]> Colors = new(StringComparer.OrdinalIgnoreCase)
@@ -33,49 +76,48 @@ public static class PdfMarkup
 
     // ------------------------------------------------------------------ finding text on a page
 
-    /// <summary>Finds a text (a word or several words in a row, any case) on the pages and returns where each occurrence is (PDF points, origin bottom left).</summary>
+    /// <summary>
+    /// Finds a text (a word, or several words) on the pages, any case, and returns where each occurrence is (PDF points of the page as displayed, origin bottom left).
+    /// It reads the letters in the order they were written, so it works on rotated pages too; blanks are ignored, so "SET PRESSURE" is found as written on the drawing.
+    /// </summary>
     public static List<Hit> Find(string path, string text, string? pages = null)
     {
         if (!File.Exists(path)) throw new FileNotFoundException("File not found: " + path);
-        var want = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (want.Length == 0) throw new ArgumentException("Give the text to find.");
+        var needle = new string(text.Where(c => !char.IsWhiteSpace(c)).ToArray());
+        if (needle.Length == 0) throw new ArgumentException("Give the text to find.");
         var hits = new List<Hit>();
         using var pdf = UglyToad.PdfPig.PdfDocument.Open(path);
         foreach (var n in PdfKit.ParsePages(pages, pdf.NumberOfPages))
         {
-            var words = pdf.GetPage(n).GetWords().ToList();
-            for (var i = 0; i < words.Count; i++)
+            var pg = pdf.GetPage(n); var geo = new Geo(pg);
+            var letters = pg.Letters.Where(l => !string.IsNullOrWhiteSpace(l.Value)).ToList();
+            var hay = new StringBuilder(); var owner = new List<int>();
+            for (var i = 0; i < letters.Count; i++) foreach (var ch in letters[i].Value) { hay.Append(ch); owner.Add(i); }
+            var h = hay.ToString(); var from = 0;
+            while (from <= h.Length - needle.Length)
             {
-                if (want.Length == 1)
-                {
-                    if (words[i].Text.Contains(want[0], StringComparison.OrdinalIgnoreCase)) hits.Add(new Hit(n, words[i].Text, ToBox(words[i].BoundingBox)));
-                    continue;
-                }
-                if (i + want.Length > words.Count) break;
-                var ok = true;
-                for (var k = 0; k < want.Length && ok; k++)
-                    ok = k == 0 ? words[i].Text.EndsWith(want[0], StringComparison.OrdinalIgnoreCase) || words[i].Text.Equals(want[0], StringComparison.OrdinalIgnoreCase)
-                        : k == want.Length - 1 ? words[i + k].Text.StartsWith(want[k], StringComparison.OrdinalIgnoreCase) : words[i + k].Text.Equals(want[k], StringComparison.OrdinalIgnoreCase);
-                if (!ok) continue;
-                var b = words[i].BoundingBox; var x0 = b.Left; var y0 = b.Bottom; var x1 = b.Right; var y1 = b.Top;
-                for (var k = 1; k < want.Length; k++) { var c = words[i + k].BoundingBox; x0 = Math.Min(x0, c.Left); y0 = Math.Min(y0, c.Bottom); x1 = Math.Max(x1, c.Right); y1 = Math.Max(y1, c.Top); }
-                if (y1 - y0 > 3 * (b.Top - b.Bottom) + 2) continue;      // not on one line
-                hits.Add(new Hit(n, string.Join(' ', words.Skip(i).Take(want.Length).Select(w => w.Text)), new Box(x0, y0, x1, y1)));
+                var at = h.IndexOf(needle, from, StringComparison.OrdinalIgnoreCase);
+                if (at < 0) break;
+                from = at + 1;
+                var first = owner[at]; var last = owner[at + needle.Length - 1];
+                var boxes = Enumerable.Range(first, last - first + 1).Select(i => geo.DispBox(letters[i].GlyphRectangle)).ToList();
+                var b = new Box(boxes.Min(x => x.X0), boxes.Min(x => x.Y0), boxes.Max(x => x.X1), boxes.Max(x => x.Y1));
+                var lh = boxes.Max(x => Math.Min(x.W, x.H));
+                if (Math.Min(b.W, b.H) > 3 * Math.Max(lh, 1) + 2) continue;                        // the letters are not on one line
+                hits.Add(new Hit(n, string.Concat(Enumerable.Range(first, last - first + 1).Select(i => letters[i].Value)), b));
             }
         }
         return hits;
     }
 
-    static Box ToBox(UglyToad.PdfPig.Core.PdfRectangle r) => new(Math.Min(r.Left, r.Right), Math.Min(r.Bottom, r.Top), Math.Max(r.Left, r.Right), Math.Max(r.Bottom, r.Top));
-
     // ------------------------------------------------------------------ free space on a page
 
     sealed class Space
     {
-        public const double Cell = 4;
+        public readonly double Cell;
         public readonly double X0, Y0, W, H; public readonly int Nx, Ny; readonly bool[,] _busy;
         int[,]? _sum;
-        public Space(Box page) { X0 = page.X0; Y0 = page.Y0; W = page.W; H = page.H; Nx = (int)Math.Ceiling(W / Cell); Ny = (int)Math.Ceiling(H / Cell); _busy = new bool[Nx, Ny]; }
+        public Space(Box page, double cell = 4) { Cell = cell; X0 = page.X0; Y0 = page.Y0; W = page.W; H = page.H; Nx = (int)Math.Ceiling(W / Cell); Ny = (int)Math.Ceiling(H / Cell); _busy = new bool[Nx, Ny]; }
         public void Block(Box b, double margin = 0)
         {
             var i0 = Math.Max(0, (int)Math.Floor((b.X0 - margin - X0) / Cell)); var i1 = Math.Min(Nx - 1, (int)Math.Floor((b.X1 + margin - X0) / Cell));
@@ -119,29 +161,29 @@ public static class PdfMarkup
         }
     }
 
-    static Space BuildSpace(UglyToad.PdfPig.Content.Page page)
+    static Space BuildSpace(UglyToad.PdfPig.Content.Page page, Geo g)
     {
-        var mb = page.MediaBox.Bounds;
-        var sp = new Space(new Box(mb.Left, mb.Bottom, mb.Right, mb.Top));
-        foreach (var w in page.GetWords()) sp.Block(ToBox(w.BoundingBox), 1.5);
+        var sp = new Space(new Box(0, 0, g.Dw, g.Dh), 4 * g.K);
+        foreach (var l in page.Letters) sp.Block(g.DispBox(l.GlyphRectangle), 1.5 * g.K);
         try
         {
             foreach (var path in page.Paths)
                 foreach (var sub in path)
                 {
-                    PdfPoint? start = null;
+                    PdfPoint? start = null; PdfPoint? first = null;
+                    void Seg(PdfPoint a, PdfPoint b, double m) => sp.BlockSegment(a.X, a.Y, b.X, b.Y, m);
                     foreach (var c in sub.Commands)
                         switch (c)
                         {
-                            case PdfSubpath.Move m: start = m.Location; break;
-                            case PdfSubpath.Line l: if (start is { } s) sp.BlockSegment(s.X, s.Y, l.To.X, l.To.Y, 1); start = l.To; break;
-                            case PdfSubpath.BezierCurve b: if (start is { } s2) sp.BlockSegment(s2.X, s2.Y, b.EndPoint.X, b.EndPoint.Y, 2); start = b.EndPoint; break;
-                            case PdfSubpath.Close: if (start is { } s3 && sub.Commands.FirstOrDefault() is PdfSubpath.Move m0) sp.BlockSegment(s3.X, s3.Y, m0.Location.X, m0.Location.Y, 1); break;
+                            case PdfSubpath.Move m: start = m.Location; first ??= m.Location; break;
+                            case PdfSubpath.Line l: if (start is { } s) Seg(s, l.To, 1 * g.K); start = l.To; break;
+                            case PdfSubpath.BezierCurve b: if (start is { } s2) Seg(s2, b.EndPoint, 2 * g.K); start = b.EndPoint; break;
+                            case PdfSubpath.Close: if (start is { } s3 && first is { } f0) Seg(s3, f0, 1 * g.K); break;
                         }
                 }
         }
         catch (Exception e) when (e is InvalidOperationException or NotSupportedException or ArgumentException) { }       // linework unreadable: words only
-        foreach (var im in page.GetImages()) sp.Block(ToBox(im.Bounds), 0);
+        foreach (var im in page.GetImages()) sp.Block(g.DispBox(im.Bounds), 0);
         return sp;
     }
 
@@ -182,7 +224,8 @@ public static class PdfMarkup
 
         using var plumb = UglyToad.PdfPig.PdfDocument.Open(input);
         var doc = PdfReader.Open(input, PdfDocumentOpenMode.Modify);
-        var spaces = new Dictionary<int, Space>();
+        var spaces = new Dictionary<int, Space>(); var geos = new Dictionary<int, Geo>();
+        Geo G(int pg) { if (!geos.TryGetValue(pg, out var g)) geos[pg] = g = new Geo(plumb.GetPage(pg)); return g; }
         PdfDictionary? font = null;
         int clouds = 0, hl = 0, notes = 0, total = 0;
 
@@ -190,10 +233,10 @@ public static class PdfMarkup
         foreach (var it in expanded.Where(x => x.Type != "legend"))
         {
             if (it.Page < 1 || it.Page > doc.PageCount) { warnings.Add($"Page {it.Page} does not exist (the PDF has {doc.PageCount})."); continue; }
-            if (!spaces.ContainsKey(it.Page)) spaces[it.Page] = BuildSpace(plumb.GetPage(it.Page));
+            if (!spaces.ContainsKey(it.Page)) spaces[it.Page] = BuildSpace(plumb.GetPage(it.Page), G(it.Page));
             var page = doc.Pages[it.Page - 1];
-            if (it.Type == "highlight") { AddHighlight(doc, page, it.Rect!); hl++; total++; }
-            else if (it.Type == "cloud") { AddCloud(doc, page, it.Rect!.Inflate(3), it.Color!, it.Comment); clouds++; total++; spaces[it.Page].Block(it.Rect!.Inflate(5)); }
+            if (it.Type == "highlight") { AddHighlight(doc, page, G(it.Page), it.Rect!); hl++; total++; }
+            else if (it.Type == "cloud") { AddCloud(doc, page, G(it.Page), it.Rect!.Inflate(3 * G(it.Page).K), it.Color!, it.Comment); clouds++; total++; spaces[it.Page].Block(it.Rect!.Inflate(5 * G(it.Page).K)); }
             else warnings.Add($"Unknown item type '{it.Type}' (cloud, highlight or legend).");
         }
         font = Font(doc);
@@ -202,28 +245,28 @@ public static class PdfMarkup
             if (it.Page < 1 || it.Page > doc.PageCount) continue;
             var sp = spaces[it.Page]; var page = doc.Pages[it.Page - 1];
             var text = it.Comment!.Trim().ToUpperInvariant();
-            var (lines, w, h) = Wrap(text, 7, 150);
-            Box? box = it.At is { Length: 2 } a ? new Box(a[0], a[1], a[0] + w, a[1] + h) : sp.Place(w, h, it.Rect!.Inflate(3));
+            var gk = G(it.Page); var (lines, w, h) = Wrap(text, 7 * gk.K, 150 * gk.K);
+            Box? box = it.At is { Length: 2 } a ? new Box(a[0], a[1], a[0] + w, a[1] + h) : sp.Place(w, h, it.Rect!.Inflate(3 * gk.K));
             if (box == null) { warnings.Add($"No free space for the comment '{text}' near its cloud: it was NOT written. Give 'at' [x,y] or shorten it."); continue; }
-            sp.Block(box.Inflate(2));
-            var (fx, fy, tx, ty) = Leader(box, it.Rect!.Inflate(3));
-            sp.BlockSegment(fx, fy, tx, ty, 1);
-            AddComment(doc, page, font, box, lines, it.Color!, text);
-            AddArrow(doc, page, fx, fy, tx, ty, it.Color!);
+            sp.Block(box.Inflate(2 * gk.K));
+            var (fx, fy, tx, ty) = Leader(box, it.Rect!.Inflate(3 * gk.K));
+            sp.BlockSegment(fx, fy, tx, ty, 1 * gk.K);
+            AddComment(doc, page, G(it.Page), font, box, lines, it.Color!, text);
+            AddArrow(doc, page, G(it.Page), fx, fy, tx, ty, it.Color!);
             notes++; total += 2;
             placed.Add(new Placed(it.Page, text, false, Arr(box), Arr(it.Rect!)));
         }
         foreach (var it in expanded.Where(x => x.Type == "legend"))
         {
             if (it.Page < 1 || it.Page > doc.PageCount) { warnings.Add($"Page {it.Page} does not exist."); continue; }
-            if (!spaces.ContainsKey(it.Page)) spaces[it.Page] = BuildSpace(plumb.GetPage(it.Page));
+            if (!spaces.ContainsKey(it.Page)) spaces[it.Page] = BuildSpace(plumb.GetPage(it.Page), G(it.Page));
             var sp = spaces[it.Page]; var page = doc.Pages[it.Page - 1];
-            var wrapped = it.Lines.SelectMany(l => Wrap(l.Text.ToUpperInvariant(), 7, 230).Lines.Select(x => (x, l.Color))).ToList();
-            var w = wrapped.Count == 0 ? 50 : wrapped.Max(l => TextWidth(l.x, 7)) + 10; var h = wrapped.Count * 9 + 8;
-            var box = it.At is { Length: 2 } a ? new Box(a[0], a[1], a[0] + w, a[1] + h) : sp.Place(w, h, new Box(sp.X0 + sp.W - 5, sp.Y0 + 5, sp.X0 + sp.W - 5, sp.Y0 + 5));
+            var lk = G(it.Page).K; var wrapped = it.Lines.SelectMany(l => Wrap(l.Text.ToUpperInvariant(), 7 * lk, 230 * lk).Lines.Select(x => (x, l.Color))).ToList();
+            var w = wrapped.Count == 0 ? 50 * lk : wrapped.Max(l => TextWidth(l.x, 7 * lk)) + 10 * lk; var h = wrapped.Count * 9 * lk + 8 * lk;
+            var box = it.At is { Length: 2 } a ? new Box(a[0], a[1], a[0] + w, a[1] + h) : sp.Place(w, h, new Box(sp.X0 + sp.W - 5 * lk, sp.Y0 + 5 * lk, sp.X0 + sp.W - 5 * lk, sp.Y0 + 5 * lk));
             if (box == null) { warnings.Add("No free space for the legend on page " + it.Page + ": give 'at' [x,y]."); continue; }
-            sp.Block(box.Inflate(2));
-            AddLegend(doc, page, font, box, wrapped);
+            sp.Block(box.Inflate(2 * lk));
+            AddLegend(doc, page, G(it.Page), font, box, wrapped);
             total++; notes++;
             placed.Add(new Placed(it.Page, null, true, Arr(box), null));
         }
@@ -247,6 +290,13 @@ public static class PdfMarkup
             if (e.TryGetProperty("page", out var p) && p.TryGetInt32(out var pn)) it.Page = pn;
             if (e.TryGetProperty("type", out var t)) it.Type = (t.GetString() ?? "cloud").ToLowerInvariant();
             if (e.TryGetProperty("rect", out var r) && r.ValueKind == JsonValueKind.Array && r.GetArrayLength() == 4) { var v = r.EnumerateArray().Select(x => x.GetDouble()).ToArray(); it.Rect = new Box(Math.Min(v[0], v[2]), Math.Min(v[1], v[3]), Math.Max(v[0], v[2]), Math.Max(v[1], v[3])); }
+            if (e.TryGetProperty("px", out var px) && px.ValueKind == JsonValueKind.Array && px.GetArrayLength() == 4 && e.TryGetProperty("in", out var inn) && inn.TryGetProperty("rect", out var zr) && zr.GetArrayLength() == 4)
+            {
+                // a box measured on a picture made by pdf_render (pixels, origin top left) -> page points
+                var z = zr.EnumerateArray().Select(x => x.GetDouble()).ToArray(); var dpi = inn.TryGetProperty("dpi", out var dp) ? dp.GetDouble() : 100; var sc = dpi / 72.0; var v = px.EnumerateArray().Select(x => x.GetDouble()).ToArray();
+                var zx0 = Math.Min(z[0], z[2]); var zy1 = Math.Max(z[1], z[3]);
+                it.Rect = new Box(zx0 + Math.Min(v[0], v[2]) / sc, zy1 - Math.Max(v[1], v[3]) / sc, zx0 + Math.Max(v[0], v[2]) / sc, zy1 - Math.Min(v[1], v[3]) / sc);
+            }
             if (e.TryGetProperty("at", out var at) && at.ValueKind == JsonValueKind.Array && at.GetArrayLength() == 2) it.At = at.EnumerateArray().Select(x => x.GetDouble()).ToArray();
             if (e.TryGetProperty("comment", out var c)) it.Comment = c.GetString();
             if (e.TryGetProperty("find", out var f)) it.Find = f.GetString();
@@ -282,8 +332,8 @@ public static class PdfMarkup
             if (TextWidth(next, fs) > maxW && cur.Length > 0) { lines.Add(cur); cur = w; } else cur = next;
         }
         if (cur.Length > 0) lines.Add(cur);
-        var width = lines.Count == 0 ? 20 : lines.Max(l => TextWidth(l, fs)) + 8;
-        return (lines, Math.Ceiling(width), lines.Count * (fs + 2) + 6);
+        var width = lines.Count == 0 ? 20 : lines.Max(l => TextWidth(l, fs)) + fs * 1.15;
+        return (lines, Math.Ceiling(width), lines.Count * (fs * 1.29) + fs * 0.86);
     }
 
     static (double Fx, double Fy, double Tx, double Ty) Leader(Box box, Box cloud)
@@ -308,11 +358,12 @@ public static class PdfMarkup
         return f;
     }
 
-    static PdfDictionary Form(PdfDocument doc, Box bbox, string content, PdfDictionary? font = null, bool multiply = false)
+    static PdfDictionary Form(PdfDocument doc, Geo g, Box bbox, string content, PdfDictionary? font = null, bool multiply = false)
     {
         var ap = new PdfDictionary(doc);
         ap.Elements["/Type"] = new PdfName("/XObject"); ap.Elements["/Subtype"] = new PdfName("/Form");
         ap.Elements["/BBox"] = Nums(doc, bbox.X0, bbox.Y0, bbox.X1, bbox.Y1);
+        if (g.Rot != 0 || g.X0 != 0 || g.Y0 != 0) ap.Elements["/Matrix"] = Nums(doc, g.Matrix());
         var res = new PdfDictionary(doc);
         if (font != null) { var fd = new PdfDictionary(doc); fd.Elements["/F1"] = font.ReferenceNotNull; res.Elements["/Font"] = fd; }
         if (multiply) { var gs = new PdfDictionary(doc); var g1 = new PdfDictionary(doc); g1.Elements["/Type"] = new PdfName("/ExtGState"); g1.Elements["/BM"] = new PdfName("/Multiply"); gs.Elements["/GS1"] = g1; res.Elements["/ExtGState"] = gs; }
@@ -322,10 +373,11 @@ public static class PdfMarkup
         return ap;
     }
 
-    static PdfDictionary Annot(PdfDocument doc, PdfPage page, string subtype, Box rect, double[] color, PdfDictionary ap, string? contents)
+    static PdfDictionary Annot(PdfDocument doc, PdfPage page, Geo g, string subtype, Box dispRect, double[] color, PdfDictionary ap, string? contents)
     {
         var a = new PdfDictionary(doc);
         a.Elements["/Type"] = new PdfName("/Annot"); a.Elements["/Subtype"] = new PdfName("/" + subtype);
+        var rect = g.UserRect(dispRect);
         a.Elements["/Rect"] = Nums(doc, rect.X0, rect.Y0, rect.X1, rect.Y1);
         a.Elements["/F"] = new PdfInteger(4);                                            // print
         a.Elements["/C"] = Nums(doc, color);
@@ -342,13 +394,13 @@ public static class PdfMarkup
     }
 
     /// <summary>A revision cloud: a polygon annotation with the cloud border effect, drawn with scallops.</summary>
-    static void AddCloud(PdfDocument doc, PdfPage page, Box r, string color, string? comment)
+    static void AddCloud(PdfDocument doc, PdfPage page, Geo g, Box r, string color, string? comment)
     {
         var col = Colors[color];
-        var bb = r.Inflate(6);
+        var bb = r.Inflate(6 * g.K);
         var sb = new StringBuilder();
-        sb.Append(Rgb(col, true)).Append(" 1.1 w 1 j 1 J\n");
-        var arc = 5.0;
+        sb.Append(Rgb(col, true)).Append($" {N(1.1 * g.K)} w 1 j 1 J\n");
+        var arc = 5.0 * g.K;
         // clockwise starting bottom left; each scallop is a bulge outward (to the right of the direction of travel)
         var pts = new List<(double x, double y)> { (r.X0, r.Y0), (r.X0, r.Y1), (r.X1, r.Y1), (r.X1, r.Y0) };
         sb.Append($"{N(pts[0].x)} {N(pts[0].y)} m\n");
@@ -357,7 +409,7 @@ public static class PdfMarkup
             var (ax, ay) = pts[i]; var (bx, by) = pts[(i + 1) % 4];
             var len = Math.Sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)); var n = Math.Max(1, (int)Math.Round(len / (arc * 1.6)));
             var ux = (bx - ax) / len; var uy = (by - ay) / len; var nx = -uy; var ny = ux;          // outward normal (left of the direction of travel: the loop runs clockwise)
-            var step = len / n; var bulge = Math.Min(step * 0.45, 3.5);
+            var step = len / n; var bulge = Math.Min(step * 0.45, 3.5 * g.K);
             for (var k = 0; k < n; k++)
             {
                 var sx = ax + ux * step * k; var sy = ay + uy * step * k; var ex = sx + ux * step; var ey = sy + uy * step;
@@ -365,98 +417,70 @@ public static class PdfMarkup
             }
         }
         sb.Append("S\n");
-        var ap = Form(doc, bb, sb.ToString());
-        var a = Annot(doc, page, "Polygon", bb, col, ap, comment);
-        var verts = Nums(doc, r.X0, r.Y0, r.X0, r.Y1, r.X1, r.Y1, r.X1, r.Y0); a.Elements["/Vertices"] = verts;
+        var ap = Form(doc, g, bb, sb.ToString());
+        var a = Annot(doc, page, g, "Polygon", bb, col, ap, comment);
+        var vp = new[] { g.ToUser(r.X0, r.Y0), g.ToUser(r.X0, r.Y1), g.ToUser(r.X1, r.Y1), g.ToUser(r.X1, r.Y0) };
+        a.Elements["/Vertices"] = Nums(doc, vp.SelectMany(q => new[] { q.X, q.Y }).ToArray());
         var be = new PdfDictionary(doc); be.Elements["/S"] = new PdfName("/C"); be.Elements["/I"] = new PdfReal(1); a.Elements["/BE"] = be;
-        var bs = new PdfDictionary(doc); bs.Elements["/W"] = new PdfReal(1.1); a.Elements["/BS"] = bs;
+        var bs = new PdfDictionary(doc); bs.Elements["/W"] = new PdfReal(1.1 * g.K); a.Elements["/BS"] = bs;
     }
 
     /// <summary>A yellow highlight over the item (multiply blend: the text underneath stays readable).</summary>
-    static void AddHighlight(PdfDocument doc, PdfPage page, Box r)
+    static void AddHighlight(PdfDocument doc, PdfPage page, Geo g, Box r)
     {
         var col = Colors["yellow"];
         var sb = new StringBuilder("/GS1 gs\n").Append(Rgb(col, false)).Append($"\n{N(r.X0)} {N(r.Y0)} {N(r.W)} {N(r.H)} re f\n");
-        var ap = Form(doc, r, sb.ToString(), null, true);
-        var a = Annot(doc, page, "Highlight", r, col, ap, null);
-        a.Elements["/QuadPoints"] = Nums(doc, r.X0, r.Y1, r.X1, r.Y1, r.X0, r.Y0, r.X1, r.Y0);
+        var ap = Form(doc, g, r, sb.ToString(), null, true);
+        var a = Annot(doc, page, g, "Highlight", r, col, ap, null);
+        var q = new[] { g.ToUser(r.X0, r.Y1), g.ToUser(r.X1, r.Y1), g.ToUser(r.X0, r.Y0), g.ToUser(r.X1, r.Y0) };
+        a.Elements["/QuadPoints"] = Nums(doc, q.SelectMany(z => new[] { z.X, z.Y }).ToArray());
     }
 
     /// <summary>The small boxed comment: a free-text annotation (editable in Bluebeam / Acrobat), white fill, coloured border and text.</summary>
-    static void AddComment(PdfDocument doc, PdfPage page, PdfDictionary font, Box b, List<string> lines, string color, string text)
+    static void AddComment(PdfDocument doc, PdfPage page, Geo g, PdfDictionary font, Box b, List<string> lines, string color, string text)
     {
         var col = Colors[color];
         var sb = new StringBuilder();
-        sb.Append("1 1 1 rg ").Append(Rgb(col, true)).Append($" 0.8 w {N(b.X0)} {N(b.Y0)} {N(b.W)} {N(b.H)} re B\nBT\n/F1 7 Tf\n").Append(Rgb(col, false)).Append('\n');
-        var y = b.Y1 - 3 - 7;
-        foreach (var l in lines) { sb.Append($"1 0 0 1 {N(b.X0 + 4)} {N(y)} Tm ({Esc(l)}) Tj\n"); y -= 9; }
+        var fs = 7 * g.K;
+        sb.Append("1 1 1 rg ").Append(Rgb(col, true)).Append($" {N(0.8 * g.K)} w {N(b.X0)} {N(b.Y0)} {N(b.W)} {N(b.H)} re B\nBT\n/F1 {N(fs)} Tf\n").Append(Rgb(col, false)).Append('\n');
+        var y = b.Y1 - fs * 0.43 - fs;
+        foreach (var l in lines) { sb.Append($"1 0 0 1 {N(b.X0 + fs * 0.57)} {N(y)} Tm ({Esc(l)}) Tj\n"); y -= fs * 1.29; }
         sb.Append("ET\n");
-        var ap = Form(doc, b, sb.ToString(), font);
-        var a = Annot(doc, page, "FreeText", b, col, ap, text);
-        a.Elements["/DA"] = new PdfString($"{N(col[0])} {N(col[1])} {N(col[2])} rg /Helv 7 Tf");
+        var ap = Form(doc, g, b, sb.ToString(), font);
+        var a = Annot(doc, page, g, "FreeText", b, col, ap, text);
+        a.Elements["/DA"] = new PdfString($"{N(col[0])} {N(col[1])} {N(col[2])} rg /Helv {N(fs)} Tf");
         a.Elements["/IT"] = new PdfName("/FreeTextTypeWriter");
     }
 
-    static void AddLegend(PdfDocument doc, PdfPage page, PdfDictionary font, Box b, List<(string x, string Color)> lines)
+    static void AddLegend(PdfDocument doc, PdfPage page, Geo g, PdfDictionary font, Box b, List<(string x, string Color)> lines)
     {
         var sb = new StringBuilder();
-        sb.Append("1 1 1 rg 0 0 0 RG 0.6 w ").Append($"{N(b.X0)} {N(b.Y0)} {N(b.W)} {N(b.H)} re B\nBT\n/F1 7 Tf\n");
-        var y = b.Y1 - 4 - 7;
-        foreach (var (t, c) in lines) { sb.Append(Rgb(Colors[c], false)).Append($"\n1 0 0 1 {N(b.X0 + 5)} {N(y)} Tm ({Esc(t)}) Tj\n"); y -= 9; }
+        var fs = 7 * g.K;
+        sb.Append($"1 1 1 rg 0 0 0 RG {N(0.6 * g.K)} w ").Append($"{N(b.X0)} {N(b.Y0)} {N(b.W)} {N(b.H)} re B\nBT\n/F1 {N(fs)} Tf\n");
+        var y = b.Y1 - 4 * g.K - fs;
+        foreach (var (t, c) in lines) { sb.Append(Rgb(Colors[c], false)).Append($"\n1 0 0 1 {N(b.X0 + 5 * g.K)} {N(y)} Tm ({Esc(t)}) Tj\n"); y -= 9 * g.K; }
         sb.Append("ET\n");
-        var ap = Form(doc, b, sb.ToString(), font);
-        var a = Annot(doc, page, "FreeText", b, Colors["black"], ap, string.Join("\n", lines.Select(l => l.x)));
-        a.Elements["/DA"] = new PdfString("0 0 0 rg /Helv 7 Tf");
+        var ap = Form(doc, g, b, sb.ToString(), font);
+        var a = Annot(doc, page, g, "FreeText", b, Colors["black"], ap, string.Join("\n", lines.Select(l => l.x)));
+        a.Elements["/DA"] = new PdfString($"0 0 0 rg /Helv {N(fs)} Tf");
     }
 
     /// <summary>The leader: a line annotation with an arrow head at the cloud.</summary>
-    static void AddArrow(PdfDocument doc, PdfPage page, double fx, double fy, double tx, double ty, string color)
+    static void AddArrow(PdfDocument doc, PdfPage page, Geo g, double fx, double fy, double tx, double ty, string color)
     {
         var col = Colors[color];
         var dx = tx - fx; var dy = ty - fy; var len = Math.Max(0.1, Math.Sqrt(dx * dx + dy * dy)); var ux = dx / len; var uy = dy / len;
-        var h = 4.5; var hx = tx - ux * h; var hy = ty - uy * h;
+        var h = 4.5 * g.K; var hx = tx - ux * h; var hy = ty - uy * h;
         var sb = new StringBuilder();
-        sb.Append(Rgb(col, true)).Append(' ').Append(Rgb(col, false)).Append($" 0.8 w\n{N(fx)} {N(fy)} m {N(tx)} {N(ty)} l S\n");
+        sb.Append(Rgb(col, true)).Append(' ').Append(Rgb(col, false)).Append($" {N(0.8 * g.K)} w\n{N(fx)} {N(fy)} m {N(tx)} {N(ty)} l S\n");
         sb.Append($"{N(tx)} {N(ty)} m {N(hx - uy * h * 0.45)} {N(hy + ux * h * 0.45)} l {N(hx + uy * h * 0.45)} {N(hy - ux * h * 0.45)} l f\n");
-        var r = new Box(Math.Min(fx, tx) - 6, Math.Min(fy, ty) - 6, Math.Max(fx, tx) + 6, Math.Max(fy, ty) + 6);
-        var ap = Form(doc, r, sb.ToString());
-        var a = Annot(doc, page, "Line", r, col, ap, null);
-        a.Elements["/L"] = Nums(doc, fx, fy, tx, ty);
+        var r = new Box(Math.Min(fx, tx) - 6 * g.K, Math.Min(fy, ty) - 6 * g.K, Math.Max(fx, tx) + 6 * g.K, Math.Max(fy, ty) + 6 * g.K);
+        var ap = Form(doc, g, r, sb.ToString());
+        var a = Annot(doc, page, g, "Line", r, col, ap, null);
+        var (ufx, ufy) = g.ToUser(fx, fy); var (utx, uty) = g.ToUser(tx, ty);
+        a.Elements["/L"] = Nums(doc, ufx, ufy, utx, uty);
         var le = new PdfArray(doc); le.Elements.Add(new PdfName("/None")); le.Elements.Add(new PdfName("/ClosedArrow")); a.Elements["/LE"] = le;
     }
 
     static string Esc(string s) => s.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)");
-}
-
-/// <summary>Draws a page, or a part of it, as a PNG so it can be looked at (zoom into a zone at high resolution).</summary>
-public static class PdfRender
-{
-    public static (string Saved, int Width, int Height) Render(string path, int page, double[]? rect, int dpi, string output, bool overwrite)
-    {
-        if (!File.Exists(path)) throw new FileNotFoundException("File not found: " + path);
-        if (!output.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) output += ".png";
-        if (File.Exists(output) && !overwrite) throw new IOException($"{output} already exists: pass overwrite=true.");
-        dpi = Math.Clamp(dpi, 30, 600);
-        var bytes = File.ReadAllBytes(path);
-        using var pig = UglyToad.PdfPig.PdfDocument.Open(bytes);
-        if (page < 1 || page > pig.NumberOfPages) throw new ArgumentException($"Page {page} does not exist (the PDF has {pig.NumberOfPages}).");
-        var mb = pig.GetPage(page).MediaBox.Bounds;
-        var scale = dpi / 72.0;
-        var opt = new PDFtoImage.RenderOptions { Dpi = dpi, WithAnnotations = true, WithFormFill = false };
-        using var bmp = PDFtoImage.Conversion.ToImage(bytes, page - 1, options: opt);
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
-        if (rect is { Length: 4 })
-        {
-            // PDF points, origin bottom left -> pixels, origin top left
-            var x0 = (int)Math.Floor((Math.Min(rect[0], rect[2]) - mb.Left) * scale); var x1 = (int)Math.Ceiling((Math.Max(rect[0], rect[2]) - mb.Left) * scale);
-            var y0 = (int)Math.Floor((mb.Top - Math.Max(rect[1], rect[3])) * scale); var y1 = (int)Math.Ceiling((mb.Top - Math.Min(rect[1], rect[3])) * scale);
-            x0 = Math.Clamp(x0, 0, bmp.Width - 1); y0 = Math.Clamp(y0, 0, bmp.Height - 1); x1 = Math.Clamp(x1, x0 + 1, bmp.Width); y1 = Math.Clamp(y1, y0 + 1, bmp.Height);
-            using var crop = new SkiaSharp.SKBitmap(x1 - x0, y1 - y0);
-            bmp.ExtractSubset(crop, new SkiaSharp.SKRectI(x0, y0, x1, y1));
-            using var img = SkiaSharp.SKImage.FromBitmap(crop); using var data = img.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
-            File.WriteAllBytes(output, data.ToArray()); return (output, crop.Width, crop.Height);
-        }
-        using var full = SkiaSharp.SKImage.FromBitmap(bmp); using var d2 = full.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
-        File.WriteAllBytes(output, d2.ToArray()); return (output, bmp.Width, bmp.Height);
-    }
 }

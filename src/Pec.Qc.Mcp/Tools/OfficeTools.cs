@@ -90,13 +90,17 @@ public static class OfficeTools
     public static object PdfMarkupTool(string path, string output, [Description("JSON array of markup items")] string items, bool overwrite = false) =>
         OverwriteGate("pdf_markup", output, ".pdf", overwrite) ?? Run(() => PdfMarkup.Apply(path, output, items, overwrite));
 
+    [McpServerTool(Name = "pdf_zones", ReadOnly = true)]
+    [Description("Plan how to LOOK at a drawing page like a checker: the sheet size class (A0-A4 from the real page size), the sheet's own border grid zones (columns and rows read from the tick marks of the border; ISO 5457 default if there are none), and a set of review tiles that follow the grid, with the zoom (dpi) that suits the sheet size and, for a scan, its own resolution. Same tiles on the client's drawing and on ours, even when the sheets differ in size (an A3 scan against an A0 redraw): compare tile with tile. 'cols' / 'rows' give the sheet's real labels, for example \"17-1\" and \"K-A\" (read them from the border). Each tile has a rect and dpi for pdf_render. 'across' / 'down' force the same tile count on both drawings of a pair. Every rectangle is in PDF points of the page as displayed, origin bottom left.")]
+    public static object PdfZonesTool(string path, int page = 1, string? cols = null, string? rows = null, [Description("tiles across; 0 = by sheet size. Give the same on both drawings of a pair")] int across = 0, [Description("tiles down; 0 = by sheet size")] int down = 0) => Run(() => PdfZones.MakePlan(path, page, cols, rows, across, down));
+
     [McpServerTool(Name = "pdf_render")]
     [Description("Draw a PDF page (with its annotations) as a PNG so you can LOOK at it with the Read tool. 'rect' [x0,y0,x1,y1] (PDF points, origin bottom left, as pdf_find gives) crops to a zone: use it with dpi 200-300 to check one zone of a large drawing at high zoom. Without rect the whole page is drawn (dpi 100 is enough for an overview). Saves the PNG next to 'output'.")]
     public static object PdfRenderTool(string path, int page, string output, [Description("JSON [x0,y0,x1,y1] or empty for the whole page")] string? rect = null, int dpi = 100, bool overwrite = false) =>
         OverwriteGate("pdf_render", output, ".png", overwrite) ?? Run(() =>
         {
             var r = string.IsNullOrWhiteSpace(rect) ? null : JsonSerializer.Deserialize<double[]>(rect);
-            var (saved, w, h) = PdfRender.Render(path, page, r, dpi, output, overwrite);
+            var (saved, w, h) = PdfZones.Render(path, page, r, dpi, output, overwrite);
             return new { saved, width = w, height = h, next = "Look at it with the Read tool." };
         });
 

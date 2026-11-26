@@ -97,14 +97,14 @@ public class PdfMarkupTests
         using var t = new TempDir();
         var src = Drawing(t.Path, "d.pdf", ("PSV-512F", 300, 130));
         var o = System.IO.Path.Combine(t.Path, "o.pdf"); PdfMarkup.Apply(src, o, """[{"type":"cloud","find":"PSV-512F","comment":"CHECK.","color":"red"}]""", false);
-        var (png, w, h) = PdfRender.Render(o, 1, new[] { 250.0, 100.0, 450.0, 200.0 }, 200, System.IO.Path.Combine(t.Path, "z.png"), false);
+        var (png, w, h) = PdfZones.Render(o, 1, new[] { 250.0, 100.0, 450.0, 200.0 }, 200, System.IO.Path.Combine(t.Path, "z.png"), false);
         Assert.InRange(w, 540, 570); Assert.InRange(h, 275, 285);              // 200 x 100 points at 200 dpi
         var bytes = File.ReadAllBytes(png); Assert.Equal(0x89, bytes[0]);
         using var bmp = SkiaSharp.SKBitmap.Decode(bytes);
         var red = 0; for (var x = 0; x < bmp.Width; x++) for (var y = 0; y < bmp.Height; y++) { var c = bmp.GetPixel(x, y); if (c.Red > 200 && c.Green < 80 && c.Blue < 80) red++; }
         Assert.True(red > 200, "the red cloud / comment are drawn in the picture");
-        var (_, fw, fh) = PdfRender.Render(o, 1, null, 50, System.IO.Path.Combine(t.Path, "f.png"), false);
+        var (_, fw, fh) = PdfZones.Render(o, 1, null, 50, System.IO.Path.Combine(t.Path, "f.png"), false);
         Assert.InRange(fw, 800, 830);
-        Assert.Throws<ArgumentException>(() => PdfRender.Render(o, 3, null, 50, System.IO.Path.Combine(t.Path, "g.png"), false));
+        Assert.Throws<ArgumentException>(() => PdfZones.Render(o, 3, null, 50, System.IO.Path.Combine(t.Path, "g.png"), false));
     }
 }
