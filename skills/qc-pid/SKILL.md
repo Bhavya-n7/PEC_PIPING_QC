@@ -5,6 +5,8 @@ description: How to check a redrawn P&ID (PDF) against the client's original P&I
 
 # P&ID check (redrawn against the original)
 
+**When the user wants the full check with a markup PDF** (two PDFs, RAW and OUTPUT, clouds and comments on the drawing), follow `qc-pid-markup`: it uses the text comparison below as its first step and then checks the whole drawing.
+
 Checklist: `qc_checklist` (type pid), 7 items. Findings and the report: `qc-findings-and-reports`. The original is in the project inputs (`pid` folder); the redrawn drawing is the file the user names.
 
 ## The tool compares the text, you report it

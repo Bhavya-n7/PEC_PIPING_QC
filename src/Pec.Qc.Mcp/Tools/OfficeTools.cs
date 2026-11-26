@@ -77,6 +77,29 @@ public static class OfficeTools
     public static object PdfWrite(string path, [Description("JSON array of blocks")] string blocks, string? title = null, bool overwrite = false) =>
         OverwriteGate("pdf_write", path, ".pdf", overwrite) ?? Run(() => new { saved = PdfKit.Create(path, blocks, overwrite, title), next = "Check it with pdf_read. Tell the user the full path." });
 
+    [McpServerTool(Name = "pdf_find", ReadOnly = true)]
+    [Description("Find where a text is on a PDF page: returns every occurrence with its box [x0,y0,x1,y1] in PDF points (origin bottom left, the same space pdf_markup uses). A phrase of several words is found when the words follow each other on a line. Use it to put a cloud or highlight exactly on an item.")]
+    public static object PdfFind(string path, string text, string? pages = null) => Run(() =>
+    {
+        var hits = PdfMarkup.Find(path, text, pages);
+        return new { count = hits.Count, hits = hits.Take(200).Select(h => new { page = h.Page, text = h.Text, rect = new[] { Math.Round(h.Box.X0, 1), Math.Round(h.Box.Y0, 1), Math.Round(h.Box.X1, 1), Math.Round(h.Box.Y1, 1) } }) };
+    });
+
+    [McpServerTool(Name = "pdf_markup")]
+    [Description("QC markup on a PDF drawing as real, editable annotations (Bluebeam / Acrobat); the drawing itself is never changed, the result is a NEW file. 'items' is JSON text: [{\"page\":1,\"type\":\"cloud\",\"find\":\"PSV-512F\",\"comment\":\"SET PRESSURE TO BE 150 PSIG AS PER RAW\",\"color\":\"red\"}, {\"type\":\"cloud\",\"rect\":[x0,y0,x1,y1],\"comment\":\"...\",\"color\":\"blue\"}, {\"type\":\"highlight\",\"find\":\"LINE-1234\",\"all\":true}, {\"type\":\"legend\",\"lines\":[{\"text\":\"RED = CORRECTION\",\"color\":\"red\"},{\"text\":\"OK: ...\",\"color\":\"green\"}]}]. A cloud with a comment gets a small boxed comment with a leader arrow, placed automatically in free space (not on text, linework or other comments); 'at':[x,y] forces a position. Colours: red, blue, green, yellow, black. 'find' (text on the page; 'all':true marks every occurrence, 'occurrence':n one) or 'rect' (PDF points, origin bottom left, as pdf_find returns). Comments are written in capitals. The result lists warnings (text not found, no free space): fix each, and check the result by looking at the pages.")]
+    public static object PdfMarkupTool(string path, string output, [Description("JSON array of markup items")] string items, bool overwrite = false) =>
+        OverwriteGate("pdf_markup", output, ".pdf", overwrite) ?? Run(() => PdfMarkup.Apply(path, output, items, overwrite));
+
+    [McpServerTool(Name = "pdf_render")]
+    [Description("Draw a PDF page (with its annotations) as a PNG so you can LOOK at it with the Read tool. 'rect' [x0,y0,x1,y1] (PDF points, origin bottom left, as pdf_find gives) crops to a zone: use it with dpi 200-300 to check one zone of a large drawing at high zoom. Without rect the whole page is drawn (dpi 100 is enough for an overview). Saves the PNG next to 'output'.")]
+    public static object PdfRenderTool(string path, int page, string output, [Description("JSON [x0,y0,x1,y1] or empty for the whole page")] string? rect = null, int dpi = 100, bool overwrite = false) =>
+        OverwriteGate("pdf_render", output, ".png", overwrite) ?? Run(() =>
+        {
+            var r = string.IsNullOrWhiteSpace(rect) ? null : JsonSerializer.Deserialize<double[]>(rect);
+            var (saved, w, h) = PdfRender.Render(path, page, r, dpi, output, overwrite);
+            return new { saved, width = w, height = h, next = "Look at it with the Read tool." };
+        });
+
     [McpServerTool(Name = "pdf_merge")]
     [Description("Join PDF files (all pages, in the order given) into a new PDF. 'files' is JSON text: [\"a.pdf\",\"b.pdf\"].")]
     public static object PdfMerge([Description("JSON array of file paths")] string files, string output, bool overwrite = false) =>

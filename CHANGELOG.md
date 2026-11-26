@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+- P&ID QC with a markup PDF, trained on the QC lead's own working prompt: the user gives the client's RAW P&ID and our redraw (OUTPUT) and Claude finds RAW and OUTPUT itself, takes the drawing number from the title block, checks zone by zone (client markups, text and data, every flow arrow, symbols and line types, overlaps, spelling, additions, errors in the raw) and writes `<drawing number>_QC-Markup.pdf`: a cloud at every error with a small boxed comment and leader arrow beside it, yellow highlights on what was updated as per client markup, a legend with a green OK line. New skill `qc-pid-markup`.
+- New tools: `pdf_markup` (real editable annotations for Bluebeam / Acrobat: revision clouds, highlights, boxed comments with leader arrows, legend; comment boxes are placed automatically in free space, not on text, linework or each other; the drawing itself is never changed), `pdf_find` (where a text is on a page, exact box) and `pdf_render` (a page or a zone as a picture at high zoom, so Claude can look at the drawing and at its own markup).
+
 ## 0.3.1
 - Fix: an automatic update failed with "The process cannot access the file ...\mcp\Pec.Qc.Mcp.exe because it is being used by another process" whenever a Claude Code or Claude Desktop session was still running the MCP server. Setup now moves a locked file aside (Windows allows renaming a running program), puts the new one in place and removes the leftover later; the running session is not killed and keeps the old copy until it restarts.
 

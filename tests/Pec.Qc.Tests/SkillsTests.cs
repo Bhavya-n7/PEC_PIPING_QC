@@ -43,7 +43,7 @@ public class SkillsTests
     public void The_QC_skills_the_plan_promises_exist()
     {
         var names = Files().Where(f => f.EndsWith("SKILL.md")).Select(f => Path.GetFileName(Path.GetDirectoryName(f))).ToHashSet();
-        foreach (var n in new[] { "qc-iso", "qc-pid", "qc-ga", "qc-findings-and-reports", "qc-project-inputs", "qc-troubleshoot", "qc-platform", "qc-learning" }) Assert.Contains(n, names);
+        foreach (var n in new[] { "qc-iso", "qc-pid", "qc-pid-markup", "qc-ga", "qc-findings-and-reports", "qc-project-inputs", "qc-troubleshoot", "qc-platform", "qc-learning" }) Assert.Contains(n, names);
     }
 
     [Fact]

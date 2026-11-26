@@ -279,6 +279,15 @@ Rules: seed missing files only, never overwrite shared files (people edit them);
 
 ---
 
+### Extra: P&ID QC with a markup PDF, trained on the QC lead's working prompt (version 0.4.0) - DONE for the tools (real renders checked by eye); the full check on a real drawing pair not yet run
+- [x] **Skill `qc-pid-markup`**: the lead's prompt (A client markups, B text and data, C every flow arrow, D drafting and symbols, E overlaps, F spelling, G additions, H raw issues; RED correction / BLUE query / YELLOW updated per client markup; cloud + boxed comment + leader, no schedule; legend with green OK; file `<drawing number>_QC-Markup.pdf`; high-zoom check; short chat summary) as a procedure; prompt rule 9; `qc-pid` points to it
+- [x] **`pdf_markup`**: real annotations (Polygon cloud with the cloud border effect, FreeText box, Line with arrow head, Highlight with multiply blend), capitals comments, colours red / blue / green / yellow, `find` (text on the page, `all`, `occurrence`) or `rect`; comment boxes and legend are placed automatically in free space found from the page's words, images and linework (nothing under them, not on each other); the drawing is never overwritten; warnings for text not found and for no free space
+- [x] **`pdf_find`** (exact box of a text, phrases) and **`pdf_render`** (page or zone as PNG at up to 600 dpi, annotations included) so Claude can look at the drawings zone by zone and check its own markup
+- [x] **Verified**: 6 tests (annotation types and counts re-read with PdfPig; no comment box on a word, a pipe or another box; find; warnings; no overwrite of the drawing; no-space case; render of a zone with the red markup visible), and the rendered pages looked at: clouds sit on the items, highlight leaves the text readable, boxes readable. The first cloud had its scallops on the wrong side: found by looking at the picture, fixed
+- [ ] **Not verified / limits**: not run on a real RAW / OUTPUT pair; the graphic checks (symbols, arrows, line types, routing, crossings) are Claude reading rendered pictures: no tool compares drawing graphics, so completeness depends on the model's reading of dense sheets (this will be measured only with the pilot hand-list comparison); the TCM symbol standard is not in the product (the user must attach it); PDF pages that are rotated are not handled; annotation look in Bluebeam itself not seen (checked with PyMuPDF and PDFium only); automatic comment placement can fail on a very dense sheet (it says so and the item needs `at`)
+
+---
+
 ## 5. Working agreement (every phase)
 1. Update this file (tick boxes honestly: built **and** checked), `README.md` and `CHANGELOG.md`.
 2. `dotnet build` 0 errors, `dotnet test` green.
