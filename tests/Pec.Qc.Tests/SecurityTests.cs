@@ -119,6 +119,22 @@ public class SecurityTests : IDisposable
         Assert.NotEqual(before, File.ReadAllBytes(file));
     }
 
+    [Fact]
+    public void A_qc_markup_the_tool_wrote_itself_can_be_regenerated_without_asking_but_another_file_cannot_be_replaced()
+    {
+        Pc("m", Eng, null, approval: "on");
+        var src = Path.Combine(_root, "dwg.pdf");
+        OfficeTools.PdfWrite(src, """[{"type":"paragraph","text":"PSV-512F"}]""");
+        const string items = """[{"type":"highlight","find":"PSV-512F"}]""";
+        var markup = Path.Combine(_root, "dwg_QC-Markup.pdf");
+        Assert.Contains("\"Saved\"", JsonSerializer.Serialize(OfficeTools.PdfMarkupTool(src, markup, items)));                                  // new file: no question
+        Assert.Contains("\"Saved\"", JsonSerializer.Serialize(OfficeTools.PdfMarkupTool(src, markup, items, overwrite: true)));                 // its own earlier markup: iterating, no question
+        var other = Path.Combine(_root, "someone-elses.pdf"); File.Copy(src, other);
+        var before = File.ReadAllBytes(other);
+        Assert.Contains("waitingForApproval", JsonSerializer.Serialize(OfficeTools.PdfMarkupTool(src, other, items, overwrite: true)));          // a file it did not write: asks
+        Assert.Equal(before, File.ReadAllBytes(other));
+    }
+
     // ----- the shared knowledge pack is the QC lead's
     [Fact]
     public async Task An_engineer_cannot_convert_documents_into_the_shared_knowledge_pack()
