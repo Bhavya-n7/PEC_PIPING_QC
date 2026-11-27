@@ -64,7 +64,8 @@ public static class PidTools
     [Description("Check a REDRAWN P&ID against the client's ORIGINAL P&ID (PDF, DXF or DWG, each side either), sheet by sheet, on their text: every line number, tag (equipment, instrument, valve), label and note on the original must be on the redrawn drawing. FAIL = missing or changed (both texts shown, look-alike characters such as 0/O named, with the sheet and zone on the original); REVIEW = only on the redrawn drawing, an item in a different place, or a sheet with no text; the graphics (symbols, routing, flow arrows, line types) are NOT compared and are always listed as not verified. The original is found in the project's inputs (pid folder) by file name unless you give it. apply=false only shows the result; apply=true asks the user to approve and saves the Excel + Markdown report.")]
     public static object Compare([Description("The redrawn P&ID PDF: path, or file name inside the project's inputs folder")] string redrawn, [Description("The client's original P&ID PDF; empty = find it in the project's pid inputs")] string? original = null,
         [Description("Project name; empty = the active project")] string? project = null, [Description("An item that moved more than this many points (A3 = 1190 x 842) is a REVIEW; default 30")] double moveTolerance = 30,
-        [Description("Also list what matched (long)")] bool includeOk = false, [Description("true = save the report (asks the user to approve)")] bool apply = false)
+        [Description("Also list what matched (long)")] bool includeOk = false, [Description("true = save the report (asks the user to approve)")] bool apply = false,
+        [Description("Most problems listed in the answer (FAILs first); the rest are counted per sheet. 0 = all. Default 80: a full sheet can give thousands")] int maxProblems = 80)
     {
         var red = Path_(redrawn, project);
         var orig = string.IsNullOrWhiteSpace(original) ? FindOriginal(red, project) : Path_(original, project);
@@ -72,6 +73,8 @@ public static class PidTools
         List<PidSheet> os, rs;
         try { os = PidReader.Read(orig); rs = PidReader.Read(red); } catch (Exception e) when (e is not McpException) { throw new McpException($"A PDF cannot be read: {e.Message}"); }
         var findings = new PidComparer(new PidOptions { MoveTolerance = moveTolerance }).Compare(os, rs);
+        // are these two files a pair at all? (before any FAIL is read)
+        var pair = PidPairCheck.Check(os, rs);
         var counts = QcReport.Counts(findings); var verdict = QcReport.Verdict(findings);
         var card = string.IsNullOrWhiteSpace(project) ? Resolve.ActiveProject() : new ProjectStore().All.FirstOrDefault(p => p.Name.Equals(project.Trim(), StringComparison.OrdinalIgnoreCase));
         var s = Resolve.Settings();
@@ -87,13 +90,15 @@ public static class PidTools
         }
         return new
         {
-            redrawn = red, original = orig, sheets = rs.Count, verdict, counts,
-            problems = findings.Where(f => f.Status is FindingStatus.Fail or FindingStatus.Review).OrderByDescending(f => f.Status).ThenBy(f => f.Subject, StringComparer.Ordinal).ThenBy(f => f.Check)
+            redrawn = red, original = orig, sheets = rs.Count, verdict, counts, pair = new { commonTagsAndLines = pair.Common, overlapPercent = pair.OverlapPercent, warning = pair.Warning },
+            problemsListed = maxProblems <= 0 ? counts.Fail + counts.Review : Math.Min(maxProblems, counts.Fail + counts.Review), problemsTotal = counts.Fail + counts.Review,
+            problemsPerSheet = findings.Where(f => f.Status is FindingStatus.Fail or FindingStatus.Review).GroupBy(f => f.Subject).ToDictionary(g => g.Key, g => g.Count()),
+            problems = findings.Where(f => f.Status is FindingStatus.Fail or FindingStatus.Review).OrderByDescending(f => f.Status).ThenBy(f => f.Subject, StringComparer.Ordinal).ThenBy(f => f.Check).Take(maxProblems <= 0 ? int.MaxValue : maxProblems)
                 .Select(f => new { status = FindingStatuses.Code(f.Status), sheet = f.Subject, check = f.Check, message = f.Message, redrawnValue = f.DrawingValue, originalValue = f.SourceValue, source = f.Source?.ToString() ?? "", where = f.Location }).ToList(),
             notVerified = findings.Where(f => f.Status == FindingStatus.Info).Select(f => f.Message).ToList(),
             ok = includeOk ? findings.Where(f => f.Status == FindingStatus.Ok).Select(f => (object)new { f.Check, f.Subject, f.Message }).ToList() : null,
             report = saved,
-            next = apply ? "Tell the user the verdict and the report paths." : "Give the user the verdict, every FAIL (missing and changed, with both texts and the sheet and zone), then the REVIEWs, then the notVerified list. Offer to save the report (apply=true).",
+            next = apply ? "Tell the user the verdict and the report paths." : "If pair.warning is set, say so FIRST (and look at both title blocks). A hand-marked original (red = new value, struck or hatched = deleted) is incorporated in the redraw, so FAILs on those items are expected: look at both drawings (pdf_zones, pdf_render) before you call anything an error; this text comparison is a hint. Then give the user the verdict, every FAIL (missing and changed, with both texts and the sheet and zone), then the REVIEWs, then the notVerified list. Offer to save the report (apply=true).",
         };
     }
 }

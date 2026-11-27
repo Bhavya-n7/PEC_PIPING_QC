@@ -14,6 +14,11 @@ Checklist: `qc_checklist` (type pid), 7 items. Findings and the report: `qc-find
 2. **Answer**: the verdict, every FAIL (missing or changed: both texts, the sheet and zone on the original, look-alike characters named), then the REVIEWs, then `notVerified`. `apply=true` saves the Excel and Markdown report after the user approves; offer it.
 3. To look closer or to answer a question about one drawing: **`pid_read`** (items with their zone A1..H6; `full` adds notes and labels).
 
+## Before you read the result
+- **Is it a pair?** `pid_compare` returns `pair` (how many line numbers and tags are on both drawings). If `pair.warning` is set, say so first and look at both title blocks (drawing number, unit, tag scheme): the two files may not be the same drawing.
+- **A hand-marked original** (red = the new value, struck-through or blue-hatched text = deleted) is incorporated in the redraw, so many FAILs are the markups themselves. Look at both overviews first; the text comparison is a hint.
+- **A long answer**: the first `maxProblems` problems (FAILs first) are listed and the rest counted per sheet (`problemsPerSheet`). If the answer was saved to a file, open it with the Read tool, not a search.
+
 ## Read the result honestly
 - **FAIL** = on the original but missing on the redrawn drawing, or different (a character, a digit, a note's wording), or a count that is lower. **REVIEW** = only on the redrawn drawing, an item in a different place (a redraw can shift things: look), or a sheet with no text. A sheet with no text is not compared: say so.
 - **The graphics are never compared**: symbols, how lines are routed and connected, flow arrows, line types, valve types. `notVerified` says so every time: tell the user a person must check these on the drawing. A clean text comparison is not a clean drawing.

@@ -16,6 +16,17 @@ public class PdfZonesTests
         var p = Path.Combine(dir, name); File.WriteAllBytes(p, b.Build()); return p;
     }
 
+    /// <summary>A sheet with pipes far enough apart for a comment box to fit between them in either orientation.</summary>
+    static string Sparse(string dir, string name, params (string Text, double X, double Y)[] words)
+    {
+        var b = new PdfDocumentBuilder(); var page = b.AddPage(1191, 842);
+        var font = b.AddStandard14Font(UglyToad.PdfPig.Fonts.Standard14Fonts.Standard14Font.Helvetica);
+        foreach (var y in new[] { 100.0, 300, 500, 700 }) page.DrawLine(new PdfPoint(40, y), new PdfPoint(1150, y), 1.2);
+        foreach (var x in new[] { 100.0, 400, 700, 1000 }) page.DrawLine(new PdfPoint(x, 40), new PdfPoint(x, 800), 1.2);
+        foreach (var (t, x, y) in words) page.AddText(t, 8, new PdfPoint(x, y), font);
+        var p = Path.Combine(dir, name); File.WriteAllBytes(p, b.Build()); return p;
+    }
+
     /// <summary>The same drawing with the page rotated (scanners and plotters often leave it so): all positions must be in the displayed orientation.</summary>
     static string Rotated(string src, string dst, int rot)
     {
@@ -26,14 +37,14 @@ public class PdfZonesTests
     public void On_a_rotated_page_find_marks_and_comments_follow_the_displayed_page(int rot)
     {
         using var t = new TempDir();
-        var src = Rotated(Drawing(t.Path, "d.pdf", ("PSV-512F", 300, 130), ("LINE-1", 500, 190), ("TAG-3", 700, 250)), Path.Combine(t.Path, "r.pdf"), rot);
+        var src = Rotated(Sparse(t.Path, "d.pdf", ("PSV-512F", 250, 150), ("LINE-1", 500, 350), ("TAG-3", 800, 550)), Path.Combine(t.Path, "r.pdf"), rot);
         var hit = Assert.Single(PdfMarkup.Find(src, "PSV-512F"));
         // the word is at (300,130) on the unrotated sheet (1191 x 842): where it is when displayed
-        var (ex, ey) = rot switch { 90 => (130.0, 1191 - 300.0), 180 => (1191 - 300.0, 842 - 130.0), _ => (842 - 130.0, 300.0) };
+        var (ex, ey) = rot switch { 90 => (150.0, 1191 - 250.0), 180 => (1191 - 250.0, 842 - 150.0), _ => (842 - 150.0, 250.0) };
         Assert.InRange((hit.Box.X0 + hit.Box.X1) / 2, ex - 40, ex + 40); Assert.InRange((hit.Box.Y0 + hit.Box.Y1) / 2, ey - 40, ey + 40);
         var o = Path.Combine(t.Path, "o.pdf");
         var r = PdfMarkup.Apply(src, o, """[{"type":"cloud","find":"PSV-512F","comment":"SET PRESSURE TO BE 150 PSIG AS PER RAW.","color":"red"},{"type":"cloud","find":"TAG-3","comment":"CONFIRM.","color":"blue"}]""", false);
-        Assert.Empty(r.Warnings);
+        Assert.True(r.Warnings.Count == 0, string.Join(" | ", r.Warnings));
         // the cloud is drawn around the word as DISPLAYED (look at the picture of the displayed page)
         var (png, w, h) = PdfZones.Render(o, 1, new[] { ex - 60, ey - 40, ex + 60, ey + 40 }, 150, Path.Combine(t.Path, "z.png"), false);
         using var bmp = SkiaSharp.SKBitmap.Decode(File.ReadAllBytes(png));
@@ -44,6 +55,11 @@ public class PdfZonesTests
         using var pdf = UglyToad.PdfPig.PdfDocument.Open(src);
         var words = pdf.GetPage(1).GetWords().Select(wd => new PdfMarkup.Box(wd.BoundingBox.Left, wd.BoundingBox.Bottom, wd.BoundingBox.Right, wd.BoundingBox.Top)).ToList();
         foreach (var b in boxes) Assert.DoesNotContain(words, wd => wd.Overlaps(b));
+        // and on no pipe of the displayed page: the pipes are the page's lines turned the same way as the page
+        var pipes = new List<PdfMarkup.Box>();
+        foreach (var yy in new[] { 100.0, 300, 500, 700 }) pipes.Add(rot switch { 90 => new PdfMarkup.Box(yy, 40, yy, 1150), 180 => new PdfMarkup.Box(1191 - 1150, 842 - yy, 1191 - 40, 842 - yy), _ => new PdfMarkup.Box(842 - yy, 1191 - 1150, 842 - yy, 1191 - 40) });
+        foreach (var xx in new[] { 100.0, 400, 700, 1000 }) pipes.Add(rot switch { 90 => new PdfMarkup.Box(40, 1191 - xx, 800, 1191 - xx), 180 => new PdfMarkup.Box(1191 - xx, 842 - 800, 1191 - xx, 842 - 40), _ => new PdfMarkup.Box(842 - 800, xx, 842 - 40, xx) });
+        foreach (var b in boxes) Assert.DoesNotContain(pipes, pp => pp.Overlaps(b.Inflate(-0.5)));
     }
 
     [Fact] public void Marks_grow_with_the_sheet_so_an_A0_comment_is_as_readable_as_an_A3_one()

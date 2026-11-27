@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.2
+- Fixes from the first days of real P&ID markup work (the team's own lessons, recorded in the learning inbox):
+  - `pdf_find` / `find` in `pdf_markup` matched pieces of words and across word breaks (a search for `DP` also marked `APD PRD` and `AND PROVIDED`). Searches now match WHOLE words (a hyphen is part of a tag); `contains: true` allows part of a word; several labels can be looked up at once (`PSV-512F|PSV-512G`).
+  - Comment text with degree, squared, cubed or plus-minus signs showed `?`; they are now drawn (Latin-1), and characters the font cannot show are reported in the warnings.
+  - A yellow legend line was unreadable (yellow on white): it is now black on a yellow band.
+  - The leader arrow of an automatically placed comment could cross other comments in a crowded zone, or run across the sheet: it never crosses another comment, cloud or arrow now and stays short; when no such place exists the comment is NOT written and the warning says to give `at`.
+  - Replacing a QC-Markup file the tool wrote itself no longer asks for approval each time (other files still do).
+  - New item type `strikeout` (a line through the wrong text; the comment beside it says what replaces it); `px` boxes measured on a picture need no `in.rect` (the whole displayed page is the default); `at` is documented as the bottom left corner of the box.
+  - `pid_compare` lists the first 80 problems and counts the rest per sheet (a full sheet gave over 100,000 characters), and checks first whether the two files look like a pair (`pair`).
+- Skill `qc-pid-markup` rewritten with the same lessons: pair the files and look at both overviews before the text comparison, a hand-marked original (red = new value, struck = deleted) is incorporated in the redraw, read codes character by character, the team's short comment style (`UPDATE SCALE TO NTS`), how to resume after a usage limit.
+
 ## 0.4.1
 - Trained on the real client sheets (A3 scans of hand-marked P&IDs and our A0 redraws): drawings are now checked **by the sheet's own grid zones, never by arbitrary cuts**. New tool `pdf_zones` reads the real page size (A0-A4, either orientation), finds the sheet's own border grid from its tick marks (ISO 5457 grid if there are none) and gives review tiles with the zoom that suits the sheet size (a scan is never rendered above its own resolution); the same tiles can be forced on both drawings of a pair, so tile T2.2 of an A3 scan and of an A0 redraw is the same part of the drawing.
 - Markup: works on rotated pages (as the client files are), marks are scaled to the sheet size (an A0 comment is as readable as an A3 one), comment boxes avoid the drawing's lines on real sheets, text is found on rotated pages, and an item can be given as a box measured on a tile picture (`in` + `px`) for sheets that have no text layer (scans, text drawn as lines).

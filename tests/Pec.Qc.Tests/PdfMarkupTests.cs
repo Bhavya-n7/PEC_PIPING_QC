@@ -89,7 +89,7 @@ public class PdfMarkupTests
         for (var y = 2.0; y < 80; y += 4) page.DrawLine(new PdfPoint(0, y), new PdfPoint(120, y), 1);          // a sheet that is all lines
         var src = System.IO.Path.Combine(t.Path, "full.pdf"); File.WriteAllBytes(src, b.Build());
         var r = PdfMarkup.Apply(src, System.IO.Path.Combine(t.Path, "o.pdf"), """[{"type":"cloud","rect":[40,30,60,40],"comment":"CHECK THIS ITEM PLEASE","color":"red"}]""", false);
-        Assert.Equal(1, r.Clouds); Assert.Contains(r.Warnings, w => w.Contains("No free space"));
+        Assert.Equal(1, r.Clouds); Assert.Contains(r.Warnings, w => w.Contains("NOT written"));
     }
 
     [Fact] public void A_zone_is_drawn_at_high_zoom_with_the_markup_on_it_and_the_whole_page_at_low_zoom()

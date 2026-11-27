@@ -25,7 +25,7 @@ builder.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
 builder.Services
     .AddMcpServer(o =>
     {
-        o.ServerInfo = new Implementation { Name = "pec-qc", Version = "0.4.1" };
+        o.ServerInfo = new Implementation { Name = "pec-qc", Version = "0.4.2" };
         o.ServerInstructions =
             "Tools for PEC's QC team: piping isometric, P&ID and GA drawing checks against the Navisworks model, the project inputs (PMS, line list, P&IDs, vendor data) and client rules. " +
             "QC is read-only: never change a model, drawing or client document; report differences with the drawing value, the source value and where each came from. " +
