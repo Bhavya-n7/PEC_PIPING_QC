@@ -78,19 +78,21 @@ public static class PdfMarkup
 
     /// <summary>
     /// Finds a text (a word, or several words) on the pages, any case, and returns where each occurrence is (PDF points of the page as displayed, origin bottom left).
-    /// It reads the letters in the order they were written, so it works on rotated pages too. Word breaks are kept (a blank, a gap wider than about half a letter, a jump to another line): a search matches WHOLE words by default,
-    /// so a short label such as "DP" is not found inside "APD PRD" or "AND PROVIDED"; "SET PRESSURE" is still found when the drawing has no blank letter between the words. <paramref name="contains"/> allows a match inside a word.
+    /// It reads the letters in the order they were written, so it works on rotated pages too. Word breaks are kept (a blank, a gap wider than about half a letter, a jump to another line) and a match never runs across one:
+    /// a short label such as "DP" is not found in "APD PRD" or "AND PROVIDED" (the end of one word and the start of the next); "SET PRESSURE" is still found when the drawing has no blank letter between the words.
+    /// A match may sit inside a longer tag ("VG-0002" in "10"-021-VG-0002-A10A-N"); <paramref name="wholeWord"/> requires that it does not run on into letters or digits at either end.
     /// </summary>
-    public static List<Hit> Find(string path, string text, string? pages = null, bool contains = false)
+    public static List<Hit> Find(string path, string text, string? pages = null, bool wholeWord = false)
     {
         if (!File.Exists(path)) throw new FileNotFoundException("File not found: " + path);
         var tokens = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
         if (tokens.Length == 0) throw new ArgumentException("Give the text to find.");
-        var pattern = string.Join(" ?", tokens.Select(System.Text.RegularExpressions.Regex.Escape));
-        if (!contains)
+        var pattern = string.Join(" ?", tokens.Select(QuoteTolerant));
+        if (wholeWord)
         {
-            if (char.IsLetterOrDigit(tokens[0][0])) pattern = @"(?<![\p{L}\p{N}\-_])" + pattern;       // a hyphen is part of a tag: "512F" is not "PSV-512F"
-            if (char.IsLetterOrDigit(tokens[^1][^1])) pattern += @"(?![\p{L}\p{N}\-_])";
+            // whole word only on request: the match must not run on into letters or digits at either end (a hyphen, a quote or a blank ends a word)
+            if (char.IsLetterOrDigit(tokens[0][0])) pattern = @"(?<![\p{L}\p{N}])" + pattern;
+            if (char.IsLetterOrDigit(tokens[^1][^1])) pattern += @"(?![\p{L}\p{N}])";
         }
         var rx = new System.Text.RegularExpressions.Regex(pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
         var hits = new List<Hit>();
@@ -101,20 +103,20 @@ public static class PdfMarkup
             var all = pg.Letters.ToList();
             var letters = new List<(UglyToad.PdfPig.Content.Letter L, Box B)>();
             var hay = new StringBuilder(); var owner = new List<int>();            // owner: index into letters, -1 for a word break
-            Box? prev = null; var prevSize = 0.0;
+            Box? prev = null; var wordSize = 0.0;                                                          // wordSize: the largest glyph of the word so far (a quote mark or a hyphen is small and sits high or low on the line)
             foreach (var l in all)
             {
-                if (string.IsNullOrWhiteSpace(l.Value)) { if (hay.Length > 0 && owner[^1] != -1) { hay.Append(' '); owner.Add(-1); } prev = null; continue; }
-                var b = geo.DispBox(l.GlyphRectangle); var size = Math.Max(1, (double)l.PointSize);
+                if (string.IsNullOrWhiteSpace(l.Value)) { if (hay.Length > 0 && owner[^1] != -1) { hay.Append(' '); owner.Add(-1); } prev = null; wordSize = 0; continue; }
+                var b = geo.DispBox(l.GlyphRectangle); var size = Math.Max(0.5, Math.Max(b.W, b.H));          // the glyph box: a CAD export may carry a font size of 1 and scale the text by a matrix
                 if (prev != null)
                 {
                     var dx = Math.Max(0, Math.Max(prev.X0, b.X0) - Math.Min(prev.X1, b.X1)); var dy = Math.Max(0, Math.Max(prev.Y0, b.Y0) - Math.Min(prev.Y1, b.Y1));
-                    var s = Math.Max(size, prevSize);
-                    if (Math.Sqrt(dx * dx + dy * dy) > 0.55 * s && owner[^1] != -1) { hay.Append(' '); owner.Add(-1); }
+                    if (Math.Max(dx, dy) > 0.55 * Math.Max(size, wordSize) && owner[^1] != -1) { hay.Append(' '); owner.Add(-1); wordSize = 0; }
                 }
+                wordSize = Math.Max(wordSize, size);
                 letters.Add((l, b));
-                foreach (var ch in l.Value) { hay.Append(ch); owner.Add(letters.Count - 1); }
-                prev = b; prevSize = size;
+                foreach (var ch in l.Value) { hay.Append(ch switch { '\u2019' or '\u2018' or '\u2032' => '\'', '\u201D' or '\u201C' or '\u2033' => '"', _ => ch }); owner.Add(letters.Count - 1); }
+                prev = b;
             }
             var h = hay.ToString();
             foreach (System.Text.RegularExpressions.Match m in rx.Matches(h))
@@ -129,6 +131,19 @@ public static class PdfMarkup
             }
         }
         return hits;
+    }
+
+    /// <summary>A search token as a pattern, with every kind of quote mark equal: an inch mark typed as " is also found where the drawing has two apostrophes (10'') or a typographic quote.</summary>
+    static string QuoteTolerant(string token)
+    {
+        var sb = new StringBuilder();
+        foreach (var c in token)
+        {
+            if (c == '"' || c == '\u201D' || c == '\u201C' || c == '\u2033') sb.Append("(?:\"|'')");
+            else if (c == '\'' || c == '\u2019' || c == '\u2018' || c == '\u2032') sb.Append("'");
+            else sb.Append(System.Text.RegularExpressions.Regex.Escape(c.ToString()));
+        }
+        return sb.ToString();
     }
 
     // ------------------------------------------------------------------ free space on a page
@@ -213,7 +228,7 @@ public static class PdfMarkup
     sealed class Item
     {
         public int Page = 1; public string Type = "cloud"; public Box? Rect; public string? Comment, Find, Color = "red";
-        public int Occurrence; public bool All; public bool Contains; public double[]? At; public List<(string Text, string Color)> Lines = new();
+        public int Occurrence; public bool All; public bool WholeWord; public double[]? At; public List<(string Text, string Color)> Lines = new();
         public double[]? Px, InRect; public double InDpi = 100;          // a box measured on a picture from pdf_render: pixels, the picture's rect (default: the whole displayed page) and dpi
     }
 
@@ -246,7 +261,7 @@ public static class PdfMarkup
         return sb.ToString();
     }
 
-    public sealed record Result(string Saved, int Annotations, int Clouds, int Highlights, int Comments, List<string> Warnings, List<Placed> Placed);
+    public sealed record Result(string Saved, int Annotations, int Clouds, int Highlights, int Comments, List<string> Warnings, List<Placed> Placed, int Strikeouts = 0);
     public sealed record Placed(int Page, string? Comment, bool Legend, double[] Box, double[]? Cloud);
 
     /// <summary>Adds the markup items (JSON array) to the PDF and saves the result as a new file.</summary>
@@ -276,8 +291,8 @@ public static class PdfMarkup
             }
             if (it.Rect != null || it.Type == "legend") { expanded.Add(it); continue; }
             if (string.IsNullOrWhiteSpace(it.Find)) throw new ArgumentException($"A '{it.Type}' item needs 'rect' [x0,y0,x1,y1] (PDF points, origin bottom left), 'px' (a box on a picture from pdf_render) or 'find' (the text to mark).");
-            var hits = Find(input, it.Find!, it.Page.ToString(), it.Contains);
-            if (hits.Count == 0) { warnings.Add($"Text '{it.Find}' was not found on page {it.Page} as a whole word: no {it.Type} placed (use pdf_find to see how it is written, 'contains':true for part of a word, or give 'rect')."); continue; }
+            var hits = Find(input, it.Find!, it.Page.ToString(), it.WholeWord);
+            if (hits.Count == 0) { warnings.Add($"Text '{it.Find}' was not found on page {it.Page}: no {it.Type} placed (use pdf_find to see how it is written, or give 'rect'). A match never runs across a word break."); continue; }
             var chosen = it.All ? hits : it.Occurrence > 0 ? hits.Skip(it.Occurrence - 1).Take(1).ToList() : hits.Take(1).ToList();
             if (!it.All && it.Occurrence == 0 && hits.Count > 1) warnings.Add($"'{it.Find}' occurs {hits.Count} times on page {it.Page}: the first was marked (use 'all':true or 'occurrence').");
             foreach (var h in chosen) expanded.Add(new Item { Page = it.Page, Type = it.Type, Rect = h.Box, Comment = it.Comment, Color = it.Color, At = it.At });
@@ -287,7 +302,7 @@ public static class PdfMarkup
         doc.Info.Keywords = string.IsNullOrWhiteSpace(doc.Info.Keywords) ? Marker : doc.Info.Keywords + "; " + Marker;
         var spaces = new Dictionary<int, Space>();
         PdfDictionary? font = null;
-        int clouds = 0, hl = 0, notes = 0, total = 0;
+        int clouds = 0, hl = 0, notes = 0, total = 0, strikes = 0;
         var cloudBoxes = new Dictionary<int, List<Box>>(); var commentBoxes = new Dictionary<int, List<Box>>(); var leaders = new Dictionary<int, List<(double X0, double Y0, double X1, double Y1)>>();
         List<T> Of<T>(Dictionary<int, List<T>> d, int pg) { if (!d.TryGetValue(pg, out var l)) d[pg] = l = new List<T>(); return l; }
 
@@ -297,7 +312,7 @@ public static class PdfMarkup
             if (!spaces.ContainsKey(it.Page)) spaces[it.Page] = BuildSpace(plumb.GetPage(it.Page), G(it.Page));
             var page = doc.Pages[it.Page - 1];
             if (it.Type == "highlight") { AddHighlight(doc, page, G(it.Page), it.Rect!); hl++; total++; }
-            else if (it.Type == "strikeout") { AddStrike(doc, page, G(it.Page), it.Rect!, it.Color!); hl++; total++; if (!string.IsNullOrWhiteSpace(it.Comment)) it.Type = "cloud-comment-only"; }
+            else if (it.Type == "strikeout") { AddStrike(doc, page, G(it.Page), it.Rect!, it.Color!); strikes++; total++; if (!string.IsNullOrWhiteSpace(it.Comment)) it.Type = "cloud-comment-only"; }
             else if (it.Type == "cloud") { AddCloud(doc, page, G(it.Page), it.Rect!.Inflate(3 * G(it.Page).K), it.Color!, it.Comment); clouds++; total++; spaces[it.Page].Block(it.Rect!.Inflate(5 * G(it.Page).K)); Of(cloudBoxes, it.Page).Add(it.Rect!.Inflate(3 * G(it.Page).K)); }
             else warnings.Add($"Unknown item type '{it.Type}' (cloud, highlight, strikeout or legend).");
         }
@@ -339,7 +354,7 @@ public static class PdfMarkup
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
         doc.Save(output);
         doc.Dispose();
-        return new Result(output, total, clouds, hl, notes, warnings, placed);
+        return new Result(output, total, clouds, hl, notes, warnings, placed, strikes);
     }
 
     static double[] Arr(Box b) => new[] { Math.Round(b.X0, 1), Math.Round(b.Y0, 1), Math.Round(b.X1, 1), Math.Round(b.Y1, 1) };
@@ -365,7 +380,7 @@ public static class PdfMarkup
                     if (inn.TryGetProperty("dpi", out var dp) && dp.TryGetDouble(out var dv) && dv > 0) it.InDpi = dv;
                 }
             }
-            if (e.TryGetProperty("contains", out var ct) && ct.ValueKind == JsonValueKind.True) it.Contains = true;
+            if (e.TryGetProperty("wholeWord", out var ww) && ww.ValueKind == JsonValueKind.True) it.WholeWord = true;
             if (e.TryGetProperty("at", out var at) && at.ValueKind == JsonValueKind.Array && at.GetArrayLength() == 2) it.At = at.EnumerateArray().Select(x => x.GetDouble()).ToArray();
             if (e.TryGetProperty("comment", out var c)) it.Comment = c.GetString();
             if (e.TryGetProperty("find", out var f)) it.Find = f.GetString();
@@ -511,8 +526,9 @@ public static class PdfMarkup
         var col = Colors[color];
         var ym = (r.Y0 + r.Y1) / 2;
         var sb = new StringBuilder(); sb.Append(Rgb(col, true)).Append($" {N(1.3 * g.K)} w\n{N(r.X0)} {N(ym)} m {N(r.X1)} {N(ym)} l S\n");
-        var ap = Form(doc, g, r.Inflate(2 * g.K), sb.ToString());
-        var a = Annot(doc, page, g, "StrikeOut", r, col, ap, null);
+        var rr = r.Inflate(2 * g.K);                                                    // the annotation rectangle and the appearance box are the same (a viewer fits one into the other)
+        var ap = Form(doc, g, rr, sb.ToString());
+        var a = Annot(doc, page, g, "StrikeOut", rr, col, ap, null);
         var q = new[] { g.ToUser(r.X0, r.Y1), g.ToUser(r.X1, r.Y1), g.ToUser(r.X0, r.Y0), g.ToUser(r.X1, r.Y0) };
         a.Elements["/QuadPoints"] = Nums(doc, q.SelectMany(z => new[] { z.X, z.Y }).ToArray());
     }

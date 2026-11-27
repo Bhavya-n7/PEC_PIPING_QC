@@ -16,21 +16,34 @@ public class PdfMarkupFieldTests
         var p = Path.Combine(dir, name); File.WriteAllBytes(p, b.Build()); return p;
     }
 
-    [Fact] public void A_short_label_finds_only_that_label_never_the_end_of_one_word_and_the_start_of_the_next()
+    [Fact] public void A_short_label_is_never_found_across_a_word_break_but_may_sit_inside_a_longer_tag()
     {
         using var t = new TempDir();
-        var src = Sheet(t.Path, "s.pdf", 1191, 842, ("DP", 100, 700), ("APD PRD", 300, 700), ("NOTE: AND PROVIDED", 500, 700), ("DP-101", 700, 700), ("SET", 100, 600), ("PRESSURE", 130, 600), ("PSV-512F", 400, 600));
+        var src = Sheet(t.Path, "s.pdf", 1191, 842, ("DP", 100, 700), ("APD PRD", 300, 700), ("NOTE: AND PROVIDED", 500, 700), ("DP-101", 700, 700), ("SET", 100, 600), ("PRESSURE", 130, 600), ("PSV-512F", 400, 600), ("4\"-021-FD-0005-A10A-N", 100, 500), ("APD", 100, 400), ("PRD", 128, 400));       // the last two are separate texts with only a gap between them (no blank letter): the end of one and the start of the next
         var hits = PdfMarkup.Find(src, "DP");
-        Assert.Single(hits); Assert.True(hits[0].Box.X0 < 150);                                // the label only: not "APD PRD", not "AND PROVIDED", not the DP of the tag "DP-101"
-        var part = PdfMarkup.Find(src, "DP", null, contains: true);
-        Assert.Equal(2, part.Count);                                                           // part of a word, when asked for: the label and "DP-101"; a break between words is never crossed
-        Assert.Single(PdfMarkup.Find(src, "512F", null, contains: true));                      // part of a word, when asked for
-        Assert.Empty(PdfMarkup.Find(src, "512F"));                                              // ... and not by default
+        Assert.Equal(2, hits.Count);                                                           // the label and the DP of "DP-101": never the end of "APD" + the start of "PRD", nor "AND" + "PROVIDED"
+        Assert.All(hits, h => Assert.True(h.Box.X0 < 150 || h.Box.X0 > 650, "found across a word break: " + h.Text));
+        Assert.All(hits, h => Assert.False(h.Box.Y0 < 450 && h.Box.Y0 > 350, "found across the gap between two texts: " + h.Text));
+        Assert.Empty(PdfMarkup.Find(src, "DPR"));                                              // would have matched "APD PRD" (with a blank, and as two texts with a gap) when blanks were ignored
+        Assert.Single(PdfMarkup.Find(src, "512F"));                                            // inside a longer tag: allowed by default (a colleague searches for the part of a tag)
+        Assert.Single(PdfMarkup.Find(src, "021-FD-0005-A10A-N"));                              // a line number without its size prefix
+        Assert.Single(PdfMarkup.Find(src, "4\"-021-FD-0005-A10A-N"));                          // and with it
+        Assert.Single(PdfMarkup.Find(src, "PSV-512")); Assert.Empty(PdfMarkup.Find(src, "PSV-512", null, wholeWord: true));   // wholeWord refuses a match that runs on into letters or digits
         Assert.Single(PdfMarkup.Find(src, "SET PRESSURE"));                                    // a phrase still works where the drawing has only a gap
         Assert.Single(PdfMarkup.Find(src, "psv-512f"));
-        // the markup item follows the same rule and says so when nothing is found as a whole word
-        var r = PdfMarkup.Apply(src, Path.Combine(t.Path, "o.pdf"), """[{"type":"highlight","find":"PD"},{"type":"highlight","find":"DP","all":true}]""", false);
-        Assert.Equal(1, r.Highlights); Assert.Contains(r.Warnings, w => w.Contains("'PD'") && w.Contains("whole word"));        // "PD" is inside APD / PRD only: not found, and the warning says how to look
+        var r = PdfMarkup.Apply(src, Path.Combine(t.Path, "o.pdf"), """[{"type":"highlight","find":"DPR"},{"type":"highlight","find":"DP","all":true}]""", false);
+        Assert.Equal(2, r.Highlights); Assert.Contains(r.Warnings, w => w.Contains("'DPR'") && w.Contains("not found"));
+    }
+
+    [Fact] public void An_inch_mark_is_found_whichever_quote_the_drawing_uses()
+    {
+        using var t = new TempDir();
+        // the drawing writes an inch as two apostrophes (10''), as a typographic quote, or as a plain quote: all are the same to a search
+        var src = Sheet(t.Path, "s.pdf", 1191, 842, ("10''-021-VG-0002-A10A-N", 100, 700), ("6”-021-VG-0003-A10A-N", 100, 600), ("4\"-021-VG-0004-A10A-N", 100, 500));
+        Assert.Single(PdfMarkup.Find(src, "10\"-021-VG-0002-A10A-N"));
+        Assert.Single(PdfMarkup.Find(src, "6\"-021-VG-0003-A10A-N"));
+        Assert.Single(PdfMarkup.Find(src, "4”-021-VG-0004-A10A-N"));
+        Assert.Single(PdfMarkup.Find(src, "10''-021-VG-0002-A10A-N"));
     }
 
     [Fact] public void Degree_squared_cubed_and_plus_minus_are_drawn_not_question_marks_and_what_the_font_cannot_show_is_reported()

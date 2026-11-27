@@ -2,7 +2,7 @@
 
 ## 0.4.2
 - Fixes from the first days of real P&ID markup work (the team's own lessons, recorded in the learning inbox):
-  - `pdf_find` / `find` in `pdf_markup` matched pieces of words and across word breaks (a search for `DP` also marked `APD PRD` and `AND PROVIDED`). Searches now match WHOLE words (a hyphen is part of a tag); `contains: true` allows part of a word; several labels can be looked up at once (`PSV-512F|PSV-512G`).
+  - `pdf_find` / `find` in `pdf_markup` matched pieces of words and across word breaks (a search for `DP` also marked `APD PRD` and `AND PROVIDED`). A match no longer runs across a word break (the end of one word and the start of the next); it may still sit inside a longer tag; `wholeWord: true` is available; quote marks are equal (`10"` is found where the drawing has `10''`); several labels can be looked up at once (`PSV-512F|PSV-512G`).
   - Comment text with degree, squared, cubed or plus-minus signs showed `?`; they are now drawn (Latin-1), and characters the font cannot show are reported in the warnings.
   - A yellow legend line was unreadable (yellow on white): it is now black on a yellow band.
   - The leader arrow of an automatically placed comment could cross other comments in a crowded zone, or run across the sheet: it never crosses another comment, cloud or arrow now and stays short; when no such place exists the comment is NOT written and the warning says to give `at`.
